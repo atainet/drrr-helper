@@ -17,7 +17,6 @@
 
 (function () {
     'use strict'
-
     // 引入layer.js
     loadScript('https://cdn.bootcdn.net/ajax/libs/layer/3.5.1/layer.min.js', 'layer')
     // 设置默认欢迎文本
