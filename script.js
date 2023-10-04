@@ -2,13 +2,13 @@
 // @name        DRRR.COM智能脚本 - 自动对话 - 自动点歌
 // @description 让DRRR.COM聊天室支持点歌、智能聊天功能
 // @namespace   Violentmonkey Scripts
-// @match       https://drrr.com/room/?id=*
+// @match       https://drrr.com/*
 // @license     MIT
 // @grant       GM_addStyle
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       GM_addElement
-// @runat      document-end
+// @runat       document-end
 // @version     2.5.15
 // @author      QQ:121610059
 // @update      2023-06-06 14:02:31
