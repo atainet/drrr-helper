@@ -41,9 +41,8 @@
         beforeSend: function(XMLHttpRequest,settings) {
             // 获取将要请求的 URL
             const requestUrl = settings.url;
-            // 如果用户主动发送消息
-            if (requestUrl.includes('ajax')){
-                // 不处理返回消息
+            if(requestUrl.includes('ajax')){
+                // 如果是用户主动发送消息就不处理消息
                 interceptSend = true
             }else{
                 // 正常处理消息
@@ -123,7 +122,7 @@
     }
 
     // 创建本地聊天记录
-    const createChatRecord = function(data, me = false) {
+    const createChatRecord = function(data) {
         // 解构数据
         const { name, icon, message } = data
         // 获取talks元素
