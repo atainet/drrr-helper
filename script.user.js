@@ -12,7 +12,6 @@
 // @resource    hsycmsAlertCss https://sywlgzs.gitee.io/hsycmsalert/hsycmsAlert.min.css
 // @require     https://unpkg.com/pxmu@1.1.0/dist/web/pxmu.min.js
 // @require     http://sywlgzs.gitee.io/hsycmsalert/hsycmsAlert.min.js
-// @require     http://sywlgzs.gitee.io/hsycmsalert/hsycmsAlert.min.js
 // @version     3.0.0
 // @author      QQ:121610059
 // @update      2023-06-06 14:02:31
@@ -24,8 +23,6 @@
     'use strict'
 
     GM_addStyle(GM_getResourceText('hsycmsAlertCss'))
-    // 判断是否在登录界面
-    const isLoginPage = location.pathname.includes('/')
     // 判断但是是否在等候室
     const isWaitingRoom = location.pathname.includes('lounge')
     // 脚本drrr名称
@@ -98,7 +95,7 @@
     }
 
     // 发送音乐消息
-    const sendMusic = function (name, url) {
+    /*const sendMusic = function (name, url) {
         return $.ajax({
             method: "post",
             url: '/room/?ajax=1',
@@ -108,7 +105,7 @@
                 name
             }
         })
-    }
+    }*/
 
     // 发送文本消息
     const sendMsg = function (msg) {
