@@ -37,14 +37,9 @@
     $.ajaxSetup({
         beforeSend: function(XMLHttpRequest,settings) {
             // 获取将要请求的 URL
-            const requestUrl = settings.url;
-            if(requestUrl.includes('ajax')){
-                // 如果是用户主动发送消息就不处理消息
-                interceptSend = true
-            }else{
-                // 正常处理消息
-                interceptSend = false
-            }
+            const requestUrl = settings.url
+            // // 如果是用户主动发送消息就不处理消息
+            interceptSend = !!requestUrl.includes('ajax');
         },
         complete: function (XMLHttpRequest) {
             // 获取拦截的url地址
