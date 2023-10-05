@@ -10,6 +10,7 @@
 // @grant       GM_getResourceText
 // @grant       GM_addElement
 // @resource    hsycmsAlertCss https://sywlgzs.gitee.io/hsycmsalert/hsycmsAlert.min.css
+// @resource    customCss https://ghps.cc/https://raw.githubusercontent.com/atainet/drrr-helper/master/static/css/style.css
 // @require     https://unpkg.com/pxmu@1.1.0/dist/web/pxmu.min.js
 // @require     http://sywlgzs.gitee.io/hsycmsalert/hsycmsAlert.min.js
 // @version     3.0.0
@@ -22,8 +23,11 @@
 
     'use strict'
 
-    GM_addStyle(GM_getResourceText('hsycmsAlertCss'))
-    // 判断但是是否在等候室
+    // 页面中插入css样式
+    GM_addStyle(GM_getResourceText('hsycmsAlertCss') + GM_getResourceText('customCss'))
+    // 向页面中插入控制面板
+    insertDrrrHelperControlPanel()
+    // 判断当前是否在等候室
     const isWaitingRoom = location.pathname.includes('lounge')
     // 脚本drrr名称
     const drrrName = localStorage.username
@@ -101,6 +105,25 @@
             }
         })
     }*/
+
+    // 插入控制面板元素
+    function insertDrrrHelperControlPanel() {
+        // 向页面中插入控制面板元素
+        const drrrHelperControlPanel = GM_addElement(document.querySelector('.message_box_effect_wraper'), 'div', {id: 'drrr-auto-panel'})
+        // 插入控制面板元素
+        drrrHelperControlPanel.innerHTML = `
+        <div id="drrr-auto-content">
+            <div class="items"><input type="checkbox" id="song_checkbox"><span>点歌功能</span></div>
+            <div class="items"><input type="checkbox" id="admin_hand_checkbox"><span>管理员切歌</span></div>
+            <div class="items"><input type="checkbox" id="song_list_checkbox"><span>点歌队列</span></div>
+            <div class="items"><input type="checkbox" id="auto_song_checkbox"><span>自动点歌</span></div>
+            <div class="items"><input type="checkbox" id="chat_checkbox"><span>智能聊天</span></div>
+            <div class="items"><input type="checkbox" id="welcome_checkbox"><span>欢迎加入</span></div>
+            <div class="items"><input type="checkbox" id="timer_checkbox"><span>定时发送</span></div>
+            <div class="items"><span id="config">配置更多信息</span></div>
+        </div>`
+    }
+
 
     // 发送文本消息
     const sendMsg = function (msg) {
