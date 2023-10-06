@@ -2,7 +2,7 @@
 // @name        drrr-helper
 // @description 让DRRR.COM聊天室支持点歌、智能聊天功能
 // @namespace   Violentmonkey Scripts
-// @match       https://drrr.com/room/?id=*
+// @match       https://drrr.com/*
 // @license     MIT
 // @grant       GM_addStyle
 // @grant       GM_setValue
@@ -14,7 +14,7 @@
 // @resource    customCss https://ghps.cc/https://raw.githubusercontent.com/atainet/drrr-helper/master/static/css/style.css
 // @require     https://unpkg.com/pxmu@1.1.0/dist/web/pxmu.min.js
 // @require     http://sywlgzs.gitee.io/hsycmsalert/hsycmsAlert.min.js
-// @version     3.0.1
+// @version     3.0.0
 // @author      QQ:121610059
 // @update      2023-06-06 14:02:31
 // @supportURL  https://greasyfork.org/zh-CN/scripts/414535-drrr-com%E6%99%BA%E8%83%BD%E8%84%9A%E6%9C%AC-%E8%87%AA%E5%8A%A8%E5%AF%B9%E8%AF%9D-%E8%87%AA%E5%8A%A8%E7%82%B9%E6%AD%8C
