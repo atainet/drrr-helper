@@ -33,7 +33,7 @@
     const drrrName = localStorage.username
     // 登陆成功后提示脚本注入成功
     if (isWaitingRoom){
-        hsycms.success('success','油猴脚本注入成功')
+        pxmu.toast('success','油猴脚本注入成功')
     }
     // 进入房间后
     if (isRoom){
