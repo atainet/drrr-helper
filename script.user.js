@@ -36,20 +36,18 @@
     if (isWaitingRoom){
         hsycms.success('success','油猴脚本注入成功')
     }
-    // 进入房间后插入控制面板
+    // 进入房间后
     if (isRoom){
+        // 插入控制面板
         insertDrrrHelperControlPanel()
+        // 禁用发送消息表单
+        document.querySelector('[name=message]').disabled = true
+        document.querySelector('[name=post]').disabled = true
     }
 
     // 拦截消息
     let interceptSend = false
     $.ajaxSetup({
-        /*beforeSend: function(XMLHttpRequest,settings) {
-            // 获取将要请求的 URL
-            const requestUrl = settings.url
-            // // 如果是用户主动发送消息就不处理消息
-            interceptSend = !!requestUrl.includes('ajax');
-        },*/
         complete: function (XMLHttpRequest) {
             // 获取拦截的url地址
             const url = this.url
@@ -72,7 +70,10 @@
     // 处理加入消息
     window.join = function({ user:{ name } }) {
         console.log("join: " + name)
-        aiChat('欢迎我加入房间,我的名字是' + name)
+        const welcome_checkbox = document.querySelector('#welcome_checkbox') // 欢迎消息开关
+        if (welcome_checkbox.checked){
+            aiChat('欢迎我加入房间,我的名字是' + name)
+        }
     }
 
     // 处理退出消息
@@ -129,11 +130,16 @@
     function handleUserMessage(name, id, icon, message) {
         // 判断是否是点歌消息
         const songName = startsWithDotSong(message)
-        if (songName) {
+        // 点歌开关
+        const song_checkbox = document.querySelector('#song_checkbox')
+        if (songName  && song_checkbox.checked) {
             handledMusicKuwo(songName)
         } else {
             // 正常处理文本消息
-            aiChat(message)
+            const chat_checkbox = document.querySelector('#chat_checkbox')  //ai聊天开关
+            if(chat_checkbox.checked) {
+                aiChat(message)
+            }
         }
     }
 
@@ -141,6 +147,19 @@
     function startsWithDotSong(text) {
         const match = text.match(/^点歌(.*)/)
         return match ? match[1] : false
+    }
+
+    // 替换酷我域名支持https
+    function replaceUrl(url) {
+        // 使用正则表达式替换规则
+        return url.replace(/http:\/\/([^\/]+)\.sycdn\.kuwo\.cn/g, function (match, p1) {
+            let parts = p1.split('.');
+            if (parts.length >= 3) {
+                return 'https://' + parts.join('-') + '-sycdn.kuwo.cn';
+            } else {
+                return 'https://' + p1 + '-sycdn.kuwo.cn';
+            }
+        })
     }
 
     // 处理点歌请求
@@ -152,10 +171,8 @@
                 const { rid, name: songName, artist: singer } = searchData[0];
                 // 请求获取歌曲url
                 const songUrl = await fetchTextData(`https://kwapi-api-iobiovqpvk.cn-beijing.fcapp.run/mp3?rid=${encodeURI(rid)}`)
-                // 替换域名支持https
-                const httpsSongUrl = songUrl.replace(/http:\/\/([^.]+)\.sycdn\.kuwo\.cn/, "https://$1-sycdn.kuwo.cn")
                 // 发送歌曲
-                sendMusic(songName +  ' - ' + singer, httpsSongUrl)
+                sendMusic(songName +  ' - ' + singer, replaceUrl(songUrl))
             } else {
                 console.error('错误信息: ', '未找到匹配的歌曲信息')
                 sendMsg('未找到匹配的歌曲信息')
@@ -233,6 +250,19 @@
         })
     }
 
+    // 定时发送方法
+    const interval_time = 120 // 设置定时发送默认间隔时间
+    let intervalSendTimer = setInterval(intervalSendFn, interval_time * 1000)   // 初始化定时器
+    function intervalSendFn() {
+        const date = new Date()
+        const time = date.getHours() + ':' + date.getMinutes() + ':' + date.getSeconds()
+        let timer_checkbox = document.getElementById('timer_checkbox')
+        timer_checkbox.checked && aiChat('给我发一条祝福,字数在50字左右,并在祝福前面加上现在时间' + time + ',最后把这段话最前面加上/me')
+        clearInterval(intervalSendTimer)    // 清除定时器
+        // 重新设置定时器
+        intervalSendTimer = setInterval(intervalSendFn, interval_time * 1000)
+    }
+
     // 插入控制面板元素
     function insertDrrrHelperControlPanel() {
         // 向页面中插入控制面板元素
@@ -245,7 +275,38 @@
             <div class="items"><input type="checkbox" id="welcome_checkbox"><span>欢迎加入</span></div>
             <div class="items"><input type="checkbox" id="timer_checkbox"><span>定时发送</span></div>
         </div>`
+
+        // 批量绑定点击事件
+        document.addEventListener('click', function (e) {
+            const ids = [
+                'song_checkbox',
+                'chat_checkbox',
+                'welcome_checkbox',
+                'timer_checkbox',
+            ]
+            if (ids.includes(e.target.id)) {
+                const foundValue = ids[ids.indexOf(e.target.id)];
+                let element = document.querySelector('#' + foundValue)
+                GM_setValue(foundValue, element.checked)
+            }
+        })
+
+        // 点歌checkbox
+        const song_checkbox = document.querySelector('#song_checkbox')
+        // 聊天checkbox
+        const chat_checkbox = document.querySelector('#chat_checkbox')
+        // 欢迎加入checkbox
+        const welcome_checkbox = document.querySelector('#welcome_checkbox')
+        // 定时checkbox
+        const timer_checkbox = document.querySelector('#timer_checkbox')
+
+        // 设置checkbox选中状态
+        GM_getValue('song_checkbox', false) ? song_checkbox.checked = true : song_checkbox.checked = false  // 点歌
+        GM_getValue('chat_checkbox', false) ? chat_checkbox.checked = true : chat_checkbox.checked = false  // ai聊天
+        GM_getValue('welcome_checkbox', false) ? welcome_checkbox.checked = true : welcome_checkbox.checked = false //  欢迎加入
+        GM_getValue('timer_checkbox', false) ? timer_checkbox.checked = true : timer_checkbox.checked = false   // 定时发送
     }
+
 
     // 发送文本消息
     function sendMsg(msg) {

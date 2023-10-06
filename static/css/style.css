@@ -81,6 +81,3 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.form-control,.room-submit-wrap{
-    display: none;
-}
