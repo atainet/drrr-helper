@@ -13,7 +13,6 @@
 // @resource    hsycmsAlertCss https://sywlgzs.gitee.io/hsycmsalert/hsycmsAlert.min.css
 // @resource    customCss https://ghps.cc/https://raw.githubusercontent.com/atainet/drrr-helper/master/static/css/style.css
 // @require     https://unpkg.com/pxmu@1.1.0/dist/web/pxmu.min.js
-// @require     http://sywlgzs.gitee.io/hsycmsalert/hsycmsAlert.min.js
 // @version     3.0.0
 // @author      QQ:121610059
 // @update      2023-06-06 14:02:31
