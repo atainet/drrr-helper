@@ -2,7 +2,7 @@
 // @name        drrr-helper
 // @description 让DRRR.COM聊天室支持点歌、智能聊天功能
 // @namespace   Violentmonkey Scripts
-// @match       https://drrr.com/*
+// @match       https://drrr.com/room/?id=*
 // @license     MIT
 // @grant       GM_addStyle
 // @grant       GM_setValue
