@@ -11,33 +11,13 @@
 // @unwrap
 // ==/UserScript==
 
+// 定义全局变量
 let currentIconName = '' // 创建一个变量以存储当前图标名称
-
-// 检查当前位置是否包含 "lounge"
-if (window.location.href.includes('lounge')) {
-    // 获取图标的类名
-    const iconClassName = document.querySelector('.icon .avatar').classList[1]
-
-    // 使用正则表达式替换 "avatar-" 为空字符串，以获取图标名称
-    currentIconName = iconClassName.replace(/^avatar-/, '')
-
-    // 将获取的 currentIconName 写入本地存储
-    if (currentIconName) {
-        localStorage.setItem('currentIconName', currentIconName)
-        alert('获取icon成功')
-    }
-}
-
-
-// 创建一个link元素
-const link = document.createElement('link')
-link.rel = 'stylesheet'
-link.type = 'text/css'
-link.href = 'https://fastly.jsdelivr.net/npm/layer-src@3.5.1/dist/theme/default/layer.min.css'
-
-// 将link元素附加到文档的head中
-document.head.appendChild(link)
-
+let autoSongInProgress = false // 添加一个标志来表示是否正在进行自动点歌的操作
+let playCompleteFlag = 0    // 创建播放完成标志，初始值为0
+let playStartFlag = 0       // 创建播放开始标志，初始值为0
+let lastRequestedSong = null // 外部创建一个变量来存储上一首点的歌曲信息
+const userSongTimestamps = {}  // 外部创建一个对象来跟踪每个用户的点歌时间戳// 外部创建一个对象来跟踪每个用户的点歌时间戳
 // 定义全局变量来维护歌曲列表和当前播放歌曲的索引
 const songList = [   // 歌曲列表
     '极乐净土',
@@ -53,9 +33,226 @@ const songList = [   // 歌曲列表
     '青鸟',
     '直到世界尽头'
 ]
+// 创建一个消息类型到处理函数的映射
+const typeToHandler = {
+    'music': handleMusic,
+    'join': handleJoin,
+    'leave': handleLeave,
+    'message': handleMessage
+}
 
-let currentSongIndex = -1 // 当前播放歌曲的索引
 
+
+// 添加全局事件监听器
+$(document).ready(function () {
+    // 初始化逻辑
+    initialize()
+
+    // 监听播放状态变化
+    waitForMusicPlayer();
+
+    // 添加 AJAX 请求监听器
+    setupAjaxListeners();
+})
+
+
+
+
+// 初始化函数
+function initialize() {
+    // 获取当前图标名称
+    getCurrentIconName()
+
+    // 创建并添加样式表
+    createAndAppendStylesheet()
+}
+
+
+
+
+// 获取当前图标名称
+function getCurrentIconName() {
+    // 检查当前位置是否包含 "lounge"
+    if (window.location.href.includes('lounge')) {
+        // 获取图标的类名
+        const iconClassName = document.querySelector('.icon .avatar').classList[1]
+
+        // 使用正则表达式替换 "avatar-" 为空字符串，以获取图标名称
+        currentIconName = iconClassName.replace(/^avatar-/, '')
+
+        // 将获取的 currentIconName 写入本地存储
+        if (currentIconName) {
+            localStorage.setItem('currentIconName', currentIconName)
+            console.log('获取用户icon成功')
+        }
+    }
+}
+
+// 创建并添加样式表
+function createAndAppendStylesheet() {
+    // 创建一个link元素
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.type = 'text/css'
+    link.href = 'https://fastly.jsdelivr.net/npm/layer-src@3.5.1/dist/theme/default/layer.min.css'
+
+    // 将link元素附加到文档的head中
+    document.head.appendChild(link)
+}
+
+// 等待音乐播放器元素出现
+function waitForMusicPlayer() {
+    // 监听播放状态变化
+    waitForElementToExist('.player-inner-wrap .progress-music', (element) => {
+        console.log('已找到音乐播放器元素')
+        // 创建 MutationObserver 来监视元素的属性变化
+        const observer = new MutationObserver((mutationsList) => {
+            for (let mutation of mutationsList) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    // 检查元素的class是否包含'active'且aria-valuenow属性为100
+                    if (element.classList.contains('active')) {
+                        // 只有当playStartFlag为偶数时执行
+                        if (playStartFlag % 2 === 0) {
+                            // 执行播放开始操作
+                            console.log('播放开始')
+                            // 5秒后执行的定时器，用于在播放开始时将标志设置为false
+                            setTimeout(function() {
+                                autoSongInProgress = false
+                            }, 5000) // 5秒后执行
+                        }
+
+                        // 增加playStartFlag的值
+                        playStartFlag++
+                    } else if (element.classList.contains('inactive') && Player.isPausing && element.getAttribute('aria-valuenow') === '100') { // 当前播放进度必须到达100才执行自动播放
+                        // 只有当playCompleteFlag为偶数时执行
+                        if (playCompleteFlag % 2 === 0) {
+                            // 执行播放完毕操作
+                            console.log('播放结束')
+                            // 音乐播放完毕后触发自动点歌逻辑
+                            autoSongRequest()
+                        }
+
+                        // 增加playCompleteFlag的值
+                        playCompleteFlag++
+                    }
+                }
+            }
+        })
+
+        // 开始监视元素的属性变化
+        observer.observe(element, { attributes: true })
+    })
+}
+
+//  设置 AJAX 请求监听器
+function setupAjaxListeners() {
+    // 在每个 AJAX 请求成功完成后执行的拦截器
+    $(document).ajaxSuccess(function(event, xhr, settings) {
+        // 检查请求的类型是否为 GET 且请求的 URL 包含 "update"
+        if (settings.type === 'GET' && settings.url.includes('update')) {
+            try {
+                // 解析响应数据为 JSON 对象
+                const responseData = JSON.parse(xhr.responseText)
+
+                // 检查是否有名为 "talks" 的属性，且它是一个数组且不为空
+                if (Array.isArray(responseData.talks) && responseData.talks.length > 0) {
+                    // 访问 "talks" 数组并遍历其中的元素
+                    const talksArray = responseData.talks
+                    console.log('请求最新消息完成。最新消息:')
+                    talksArray.forEach(talk => {
+                        // 根据 "type" 属性调用相应的处理函数
+                        const handler = typeToHandler[talk.type]
+                        if (handler) {
+                            handler(talk)
+                        } else {
+                            console.log('未知类型:', talk.type)
+                        }
+                    })
+                } else {
+                    console.log('请求最新消息完成。没有新消息。')
+                }
+            } catch (error) {
+                console.error('无法解析 JSON 响应数据:', error)
+            }
+        }
+    })
+    // 添加全局 AJAX 发送前事件监听器
+    $(document).ajaxSend(function(event, xhr, settings) {
+        // 检查请求类型是否为 POST 且请求的 URL 包含 "ajax"
+        if (settings.type === 'POST' && settings.url.includes('ajax')) {
+            // 获取请求数据
+            const requestDatas = settings.data
+
+            // 检查 requestData 是否包含 "message"
+            if (requestDatas.includes('message')) {
+                // 如果包含 "message"，继续检查是否同时包含 "url" 和 "to"
+                if (requestDatas.includes('url') && requestDatas.includes('to')) {
+                    console.log('用户主动通过表单发送消息')
+                } else {
+                    console.log('脚本自动处理发送消息')
+                    let name = localStorage.username  // 获取本地用户名
+                    // 使用 URLSearchParams 来解析
+                    const params = new URLSearchParams(requestDatas)
+                    // 获取键值对
+                    const requestData = {}
+                    for (const [key, value] of params) {
+                        requestData[key] = value
+                    }
+                    // 从本地存储中获取 currentIconName
+                    const storedIconName = localStorage.getItem('currentIconName')
+                    if (!storedIconName || storedIconName === '') { // 如果 storedIconName 不存在或为空字符串
+                        const userResponse = confirm('图标不存在或为空。是否返回等候室重新获取图标？')
+
+                        if (userResponse) {
+                            // 用户点击了确认按钮，执行 POST 请求
+                            $.post('/room/?ajax=1', { leave: 'leave' }, function(responseData) {
+                                if (!responseData) {
+                                    // 如果 POST 请求成功并且响应为空，执行重定向逻辑
+                                    console.log('POST 请求成功，返回等候室。')
+                                    window.location.href = '/lounge' // 重定向到等候室页面
+                                } else {
+                                    // 如果 POST 请求成功但响应不为空，可以根据需要执行其他操作
+                                    console.log('POST 请求成功，但响应不为空:', responseData)
+                                }
+                            }).fail(function(error) {
+                                // 处理请求失败的情况
+                                console.error('POST 请求失败:', error)
+                            })
+                        } else {
+                            // 用户点击了取消按钮，可以执行其他操作或不执行任何操作
+                            console.log('用户取消了返回等候室操作。')
+                        }
+                    }
+                    // 插入本地消息
+                    const talks = document.getElementById('talks')
+                    const div = `
+                    <dl class="talk ${storedIconName}">
+                        <dt class="dropdown user">
+                            <div class="avatar avatar-${storedIconName}"></div>
+                            <div class="name" data-toggle="dropdown">
+                                <span class="select-text">${name}</span>
+                            </div>
+                            <ul class="dropdown-menu" role="menu"></ul>
+                        </dt>
+                        <dd>
+                            <div class="bubble">
+                                <div class="tail-wrap center" style="background-size: 65px">
+                                    <div class="tail-mask"></div>
+                                </div>
+                                <p class="body select-text">${requestData.message}</p>
+                            </div>
+                        </dd>
+                    </dl>
+                `
+
+                    setTimeout(function(){  // 延迟1.5秒插入本地消息
+                        talks.insertAdjacentHTML("afterbegin", div)
+                    }, 1500 )
+                }
+            }
+        }
+    })
+}
 
 // 定义一个函数，用于等待指定元素出现
 function waitForElementToExist(selector, callback) {
@@ -68,113 +265,6 @@ function waitForElementToExist(selector, callback) {
         }
     }, 100) // 每100毫秒检查一次
 }
-
-let autoSongInProgress = false // 添加一个标志来表示是否正在进行自动点歌的操作
-// 外部创建两个标志，初始值为0
-let playCompleteFlag = 0
-let playStartFlag = 0
-
-// 监听播放状态变化
-waitForElementToExist('.player-inner-wrap .progress-music', (element) => {
-    console.log('已找到音乐播放器元素')
-    // 创建 MutationObserver 来监视元素的属性变化
-    const observer = new MutationObserver((mutationsList) => {
-        for (let mutation of mutationsList) {
-            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                // 检查元素的class是否包含'active'且aria-valuenow属性为100
-                if (element.classList.contains('active')) {
-                    // 只有当playStartFlag为偶数时执行
-                    if (playStartFlag % 2 === 0) {
-                        // 执行播放开始操作
-                        console.log('播放开始')
-                        // 5秒后执行的定时器，用于在播放开始时将标志设置为false
-                        setTimeout(function() {
-                            autoSongInProgress = false
-                        }, 5000) // 5秒后执行
-                    }
-
-                    // 增加playStartFlag的值
-                    playStartFlag++
-                } else if (element.classList.contains('inactive') && Player.isPausing && element.getAttribute('aria-valuenow') === '100') { // 当前播放进度必须到达100才执行自动播放
-                    // 只有当playCompleteFlag为偶数时执行
-                    if (playCompleteFlag % 2 === 0) {
-                        // 执行播放完毕操作
-                        console.log('播放结束')
-                        // 音乐播放完毕后触发自动点歌逻辑
-                        autoSongRequest()
-                    }
-
-                    // 增加playCompleteFlag的值
-                    playCompleteFlag++
-                }
-            }
-        }
-    })
-
-    // 开始监视元素的属性变化
-    observer.observe(element, { attributes: true })
-})
-
-// 等待showSweetAlert的元素出现
-waitForElementToExist('.sweet-alert.showSweetAlert.visible', (element) => {
-    console.log('已找到提示框元素')
-    console.log(element)
-
-    // 查找具有class="confirm"的元素并点击它
-    const confirmButton = element.querySelector('.confirm')
-
-    if (confirmButton) {
-        confirmButton.click() // 点击确认按钮
-        console.log("自动确认播放错误的弹出框")
-    }
-})
-
-
-// 处理音乐类型的函数
-function handleMusic(talk) {
-    console.log('处理音乐:', talk)
-    // 检查 talk.from.name 是否等于 localStorage.username
-    if (talk.from.name === localStorage.username) {
-        console.log('消息发送者与当前用户相同，不处理消息。')
-    }
-}
-
-// 处理加入类型的函数
-function handleJoin(talk) {
-    console.log('处理加入:', talk)
-    // 在这里执行处理加入的操作
-}
-
-// 处理离开类型的函数
-function handleLeave(talk) {
-    console.log('处理离开:', talk)
-    // 在这里执行处理离开的操作
-}
-
-// 处理消息类型的函数
-function handleMessage(talk) {
-    const { from, message } = talk // 解构获取属性
-    const { name, id, time } = from // 解构获取属性
-
-    // 检查消息发送者是否与当前用户相同
-    if (name === localStorage.username) {
-        console.log('消息发送者与当前用户相同，不处理消息。')
-        return // 如果相同，则不继续处理消息
-    }
-
-    console.log('处理消息:', talk)
-
-    // 检查消息内容是否以特定前缀开头（例如 "点歌"）
-    const trimmedMessage = message.trim()
-    if (trimmedMessage.startsWith("点歌")) {
-        // 提取点歌后面的字符串
-        const songRequest = trimmedMessage.substring("点歌".length).trim()
-        // 执行你的自定义函数来处理点歌请求
-        handleSongRequest(songRequest, name, id, time)
-    }
-    // 在这里执行处理消息的操作
-}
-
 
 // 自动点歌逻辑
 function autoSongRequest() {
@@ -197,7 +287,6 @@ function autoSongRequest() {
 
         // 随机选择一个歌曲
         const randomIndex = Math.floor(Math.random() * songList.length)
-        currentSongIndex = randomIndex
 
         // 点歌选定的歌曲
         const selectedSongName = songList[randomIndex]
@@ -214,12 +303,6 @@ function autoSongRequest() {
         console.log('歌曲列表为空，无法自动点歌。')
     }
 }
-
-
-
-let lastRequestedSong = null // 外部创建一个变量来存储上一首点的歌曲信息
-
-const userSongTimestamps = {}  // 外部创建一个对象来跟踪每个用户的点歌时间戳// 外部创建一个对象来跟踪每个用户的点歌时间戳
 
 // 自定义处理点歌请求的函数
 function handleSongRequest(songRequest, name, id) {
@@ -276,7 +359,7 @@ function handleSongRequest(songRequest, name, id) {
     getSongInfo(songRequest, onSuccess, onError)
 }
 
-// 发送音乐函数
+// 发送音乐消息
 function sendMusicRequest(url, name) {
     // 创建请求的数据对象
     const requestData = {
@@ -303,19 +386,6 @@ function sendMusicRequest(url, name) {
     }).fail(function(error) {
         // 处理请求失败的情况
         console.error('发送音乐请求失败:', error)
-    })
-}
-
-// 替换酷我域名支持https
-function replaceDomain(url) {
-    // 使用正则表达式替换规则
-    return url.replace(/http:\/\/([^\/]+)\.sycdn\.kuwo\.cn/g, function (match, p1) {
-        let parts = p1.split('.')
-        if (parts.length >= 3) {
-            return 'https://' + parts.join('-') + '-sycdn.kuwo.cn'
-        } else {
-            return 'https://' + p1 + '-sycdn.kuwo.cn'
-        }
     })
 }
 
@@ -391,119 +461,67 @@ function getSongInfo(keyword, successCallback, errorCallback) {
     })
 }
 
-// 创建一个类型到处理函数的映射
-const typeToHandler = {
-    'music': handleMusic,
-    'join': handleJoin,
-    'leave': handleLeave,
-    'message': handleMessage
+// 替换酷我域名支持https
+function replaceDomain(url) {
+    // 使用正则表达式替换规则
+    return url.replace(/http:\/\/([^\/]+)\.sycdn\.kuwo\.cn/g, function (match, p1) {
+        let parts = p1.split('.')
+        if (parts.length >= 3) {
+            return 'https://' + parts.join('-') + '-sycdn.kuwo.cn'
+        } else {
+            return 'https://' + p1 + '-sycdn.kuwo.cn'
+        }
+    })
 }
 
-// 在每个 AJAX 请求成功完成后执行的拦截器
-$(document).ajaxSuccess(function(event, xhr, settings) {
-    // 检查请求的类型是否为 GET 且请求的 URL 包含 "update"
-    if (settings.type === 'GET' && settings.url.includes('update')) {
-        try {
-            // 解析响应数据为 JSON 对象
-            const responseData = JSON.parse(xhr.responseText)
 
-            // 检查是否有名为 "talks" 的属性，且它是一个数组且不为空
-            if (Array.isArray(responseData.talks) && responseData.talks.length > 0) {
-                // 访问 "talks" 数组并遍历其中的元素
-                const talksArray = responseData.talks
-                console.log('请求最新消息完成。最新消息:')
-                talksArray.forEach(talk => {
-                    // 根据 "type" 属性调用相应的处理函数
-                    const handler = typeToHandler[talk.type]
-                    if (handler) {
-                        handler(talk)
-                    } else {
-                        console.log('未知类型:', talk.type)
-                    }
-                })
-            } else {
-                console.log('请求最新消息完成。没有新消息。')
-            }
-        } catch (error) {
-            console.error('无法解析 JSON 响应数据:', error)
-        }
+
+
+// 处理音乐类型的函数
+function handleMusic(talk) {
+    console.log('处理音乐:', talk)
+    // 检查 talk.from.name 是否等于 localStorage.username
+    if (talk.from.name === localStorage.username) {
+        console.log('消息发送者与当前用户相同，不处理消息。')
     }
-})
+}
 
+// 处理加入类型的函数
+function handleJoin(talk) {
+    console.log('处理加入:', talk)
+    // 在这里执行处理加入的操作
+}
 
-// 添加全局 AJAX 发送前事件监听器
-$(document).ajaxSend(function(event, xhr, settings) {
-    // 检查请求类型是否为 POST 且请求的 URL 包含 "ajax"
-    if (settings.type === 'POST' && settings.url.includes('ajax')) {
-        // 获取请求数据
-        const requestDatas = settings.data
+// 处理离开类型的函数
+function handleLeave(talk) {
+    console.log('处理离开:', talk)
+    // 在这里执行处理离开的操作
+}
 
-        // 检查 requestData 是否包含 "message"
-        if (requestDatas.includes('message')) {
-            // 如果包含 "message"，继续检查是否同时包含 "url" 和 "to"
-            if (requestDatas.includes('url') && requestDatas.includes('to')) {
-                console.log('用户主动通过表单发送消息')
-            } else {
-                console.log('脚本自动处理发送消息')
-                let name = localStorage.username  // 获取本地用户名
-                // 使用 URLSearchParams 来解析
-                const params = new URLSearchParams(requestDatas)
-                // 获取键值对
-                const requestData = {}
-                for (const [key, value] of params) {
-                    requestData[key] = value
-                }
-                // 从本地存储中获取 currentIconName
-                const storedIconName = localStorage.getItem('currentIconName')
-                if (!storedIconName || storedIconName === '') { // 如果 storedIconName 不存在或为空字符串
-                    const userResponse = confirm('图标不存在或为空。是否返回等候室重新获取图标？')
+// 处理消息类型的函数
+function handleMessage(talk) {
+    const { from, message } = talk // 解构获取属性
+    const { name, id, time } = from // 解构获取属性
 
-                    if (userResponse) {
-                        // 用户点击了确认按钮，执行 POST 请求
-                        $.post('/room/?ajax=1', { leave: 'leave' }, function(responseData) {
-                            if (!responseData) {
-                                // 如果 POST 请求成功并且响应为空，执行重定向逻辑
-                                console.log('POST 请求成功，返回等候室。')
-                                window.location.href = '/lounge' // 重定向到等候室页面
-                            } else {
-                                // 如果 POST 请求成功但响应不为空，可以根据需要执行其他操作
-                                console.log('POST 请求成功，但响应不为空:', responseData)
-                            }
-                        }).fail(function(error) {
-                            // 处理请求失败的情况
-                            console.error('POST 请求失败:', error)
-                        })
-                    } else {
-                        // 用户点击了取消按钮，可以执行其他操作或不执行任何操作
-                        console.log('用户取消了返回等候室操作。')
-                    }
-                }
-                // 插入本地消息
-                const talks = document.getElementById('talks')
-                const div = `
-                    <dl class="talk ${storedIconName}">
-                        <dt class="dropdown user">
-                            <div class="avatar avatar-${storedIconName}"></div>
-                            <div class="name" data-toggle="dropdown">
-                                <span class="select-text">${name}</span>
-                            </div>
-                            <ul class="dropdown-menu" role="menu"></ul>
-                        </dt>
-                        <dd>
-                            <div class="bubble">
-                                <div class="tail-wrap center" style="background-size: 65px">
-                                    <div class="tail-mask"></div>
-                                </div>
-                                <p class="body select-text">${requestData.message}</p>
-                            </div>
-                        </dd>
-                    </dl>
-                `
-
-                setTimeout(function(){  // 延迟1.5秒插入本地消息
-                    talks.insertAdjacentHTML("afterbegin", div)
-                }, 1500 )
-            }
-        }
+    // 检查消息发送者是否与当前用户相同
+    if (name === localStorage.username) {
+        console.log('消息发送者与当前用户相同，不处理消息。')
+        return // 如果相同，则不继续处理消息
     }
-})
+
+    console.log('处理消息:', talk)
+
+    // 检查消息内容是否以特定前缀开头（例如 "点歌"）
+    const trimmedMessage = message.trim()
+    if (trimmedMessage.startsWith("点歌")) {
+        // 提取点歌后面的字符串
+        const songRequest = trimmedMessage.substring("点歌".length).trim()
+        // 执行你的自定义函数来处理点歌请求
+        handleSongRequest(songRequest, name, id, time)
+    }
+    // 在这里执行处理消息的操作
+}
+
+
+
+
