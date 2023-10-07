@@ -11,19 +11,19 @@
 // @unwrap
 // ==/UserScript==
 
-let currentIconName = ''; // 创建一个变量以存储当前图标名称
+let currentIconName = '' // 创建一个变量以存储当前图标名称
 
 // 检查当前位置是否包含 "lounge"
 if (window.location.href.includes('lounge')) {
     // 获取图标的类名
-    const iconClassName = document.querySelector('.icon .avatar').classList[1];
+    const iconClassName = document.querySelector('.icon .avatar').classList[1]
 
     // 使用正则表达式替换 "avatar-" 为空字符串，以获取图标名称
-    currentIconName = iconClassName.replace(/^avatar-/, '');
+    currentIconName = iconClassName.replace(/^avatar-/, '')
 
     // 将获取的 currentIconName 写入本地存储
     if (currentIconName) {
-        localStorage.setItem('currentIconName', currentIconName);
+        localStorage.setItem('currentIconName', currentIconName)
         alert('获取icon成功')
     }
 }
@@ -31,8 +31,8 @@ if (window.location.href.includes('lounge')) {
 
 // 创建一个link元素
 const link = document.createElement('link')
-link.rel = 'stylesheet';
-link.type = 'text/css';
+link.rel = 'stylesheet'
+link.type = 'text/css'
 link.href = 'https://fastly.jsdelivr.net/npm/layer-src@3.5.1/dist/theme/default/layer.min.css'
 
 // 将link元素附加到文档的head中
@@ -69,14 +69,14 @@ function waitForElementToExist(selector, callback) {
     }, 100) // 每100毫秒检查一次
 }
 
-let autoSongInProgress = false; // 添加一个标志来表示是否正在进行自动点歌的操作
+let autoSongInProgress = false // 添加一个标志来表示是否正在进行自动点歌的操作
 // 外部创建两个标志，初始值为0
-let playCompleteFlag = 0;
-let playStartFlag = 0;
+let playCompleteFlag = 0
+let playStartFlag = 0
 
 // 监听播放状态变化
 waitForElementToExist('.player-inner-wrap .progress-music', (element) => {
-    console.log('已找到音乐播放器元素');
+    console.log('已找到音乐播放器元素')
     // 创建 MutationObserver 来监视元素的属性变化
     const observer = new MutationObserver((mutationsList) => {
         for (let mutation of mutationsList) {
@@ -86,34 +86,34 @@ waitForElementToExist('.player-inner-wrap .progress-music', (element) => {
                     // 只有当playStartFlag为偶数时执行
                     if (playStartFlag % 2 === 0) {
                         // 执行播放开始操作
-                        console.log('播放开始');
+                        console.log('播放开始')
                         // 5秒后执行的定时器，用于在播放开始时将标志设置为false
                         setTimeout(function() {
-                            autoSongInProgress = false;
-                        }, 5000); // 5秒后执行
+                            autoSongInProgress = false
+                        }, 5000) // 5秒后执行
                     }
 
                     // 增加playStartFlag的值
-                    playStartFlag++;
+                    playStartFlag++
                 } else if (element.classList.contains('inactive') && Player.isPausing && element.getAttribute('aria-valuenow') === '100') { // 当前播放进度必须到达100才执行自动播放
                     // 只有当playCompleteFlag为偶数时执行
                     if (playCompleteFlag % 2 === 0) {
                         // 执行播放完毕操作
-                        console.log('播放结束');
+                        console.log('播放结束')
                         // 音乐播放完毕后触发自动点歌逻辑
                         autoSongRequest()
                     }
 
                     // 增加playCompleteFlag的值
-                    playCompleteFlag++;
+                    playCompleteFlag++
                 }
             }
         }
     })
 
     // 开始监视元素的属性变化
-    observer.observe(element, { attributes: true });
-});
+    observer.observe(element, { attributes: true })
+})
 
 // 等待showSweetAlert的元素出现
 waitForElementToExist('.sweet-alert.showSweetAlert.visible', (element) => {
@@ -121,11 +121,11 @@ waitForElementToExist('.sweet-alert.showSweetAlert.visible', (element) => {
     console.log(element)
 
     // 查找具有class="confirm"的元素并点击它
-    const confirmButton = element.querySelector('.confirm');
+    const confirmButton = element.querySelector('.confirm')
 
     if (confirmButton) {
-        confirmButton.click(); // 点击确认按钮
-        console.log("自动确认播放错误的弹出框");
+        confirmButton.click() // 点击确认按钮
+        console.log("自动确认播放错误的弹出框")
     }
 })
 
@@ -153,24 +153,24 @@ function handleLeave(talk) {
 
 // 处理消息类型的函数
 function handleMessage(talk) {
-    const { from, message } = talk; // 解构获取属性
-    const { name, id, time } = from; // 解构获取属性
+    const { from, message } = talk // 解构获取属性
+    const { name, id, time } = from // 解构获取属性
 
     // 检查消息发送者是否与当前用户相同
     if (name === localStorage.username) {
-        console.log('消息发送者与当前用户相同，不处理消息。');
-        return; // 如果相同，则不继续处理消息
+        console.log('消息发送者与当前用户相同，不处理消息。')
+        return // 如果相同，则不继续处理消息
     }
 
-    console.log('处理消息:', talk);
+    console.log('处理消息:', talk)
 
     // 检查消息内容是否以特定前缀开头（例如 "点歌"）
-    const trimmedMessage = message.trim();
+    const trimmedMessage = message.trim()
     if (trimmedMessage.startsWith("点歌")) {
         // 提取点歌后面的字符串
-        const songRequest = trimmedMessage.substring("点歌".length).trim();
+        const songRequest = trimmedMessage.substring("点歌".length).trim()
         // 执行你的自定义函数来处理点歌请求
-        handleSongRequest(songRequest, name, id, time);
+        handleSongRequest(songRequest, name, id, time)
     }
     // 在这里执行处理消息的操作
 }
@@ -181,13 +181,13 @@ function autoSongRequest() {
     // 如果正在进行自动点歌的操作，则直接返回，避免重复调用
     if (autoSongInProgress) {
         console.log('正在自动点歌中，不重复操作。')
-        return;
+        return
     }
 
     // 如果正在播放音乐,这直接返回,避免重复点歌
     if(Player.isPausing === false){
         console.log('正在播放音乐，不重复点歌。')
-        return;
+        return
     }
 
     // 设置标志为 true，表示正在进行自动点歌的操作
@@ -197,19 +197,19 @@ function autoSongRequest() {
 
         // 随机选择一个歌曲
         const randomIndex = Math.floor(Math.random() * songList.length)
-        currentSongIndex = randomIndex;
+        currentSongIndex = randomIndex
 
         // 点歌选定的歌曲
-        const selectedSongName = songList[randomIndex];
+        const selectedSongName = songList[randomIndex]
 
         // 使用 getSongInfo 函数来获取歌曲的URL
         getSongInfo(selectedSongName, function(url, songName) {
             // 在成功回调函数中点歌
-            sendMusicRequest(url, songName);
-            console.log('自动点歌:', songName);
+            sendMusicRequest(url, songName)
+            console.log('自动点歌:', songName)
         }, function(errorMessage) {
             console.error('自动点歌失败:', errorMessage)
-        });
+        })
     } else {
         console.log('歌曲列表为空，无法自动点歌。')
     }
@@ -217,9 +217,9 @@ function autoSongRequest() {
 
 
 
-let lastRequestedSong = null; // 外部创建一个变量来存储上一首点的歌曲信息
+let lastRequestedSong = null // 外部创建一个变量来存储上一首点的歌曲信息
 
-const userSongTimestamps = {};  // 外部创建一个对象来跟踪每个用户的点歌时间戳// 外部创建一个对象来跟踪每个用户的点歌时间戳
+const userSongTimestamps = {}  // 外部创建一个对象来跟踪每个用户的点歌时间戳// 外部创建一个对象来跟踪每个用户的点歌时间戳
 
 // 自定义处理点歌请求的函数
 function handleSongRequest(songRequest, name, id) {
@@ -227,53 +227,53 @@ function handleSongRequest(songRequest, name, id) {
     // 检查当前这首点的歌曲是否与上一首不一样
     if (lastRequestedSong === songRequest) {
         // 上一首点的歌曲与当前这首一样，触发错误提示
-        console.log('上一首点的歌曲与当前这首相同，请选择其他歌曲。');
+        console.log('上一首点的歌曲与当前这首相同，请选择其他歌曲。')
         //  发送消息提示用户
         sendMessage('上一首点的歌曲与当前这首相同，请选择其他歌曲。')
-        return;
+        return
     }
 
     // 获取当前时间戳
-    const currentTime = Date.now();
+    const currentTime = Date.now()
     // 定义秒数限制，例如设置为 30 秒
-    const songRequestLimitInSeconds = 30;
+    const songRequestLimitInSeconds = 30
     // 设置点歌频率的秒数限制
-    const songRequestLimit = songRequestLimitInSeconds * 1000; // 将秒数转换为毫秒
+    const songRequestLimit = songRequestLimitInSeconds * 1000 // 将秒数转换为毫秒
 
     // 检查用户是否在指定秒数内重复点歌
     if (userSongTimestamps[id] && currentTime - userSongTimestamps[id] < songRequestLimit) {
         // 用户在指定秒数内重复点歌，触发错误提示
-        console.log('@' + name + ' 点歌的频率太高，请稍后再试。限制时间：' + songRequestLimitInSeconds + '秒');
+        console.log('@' + name + ' 点歌的频率太高，请稍后再试。限制时间：' + songRequestLimitInSeconds + '秒')
         // 发送消息提示用户
-        sendMessage('@' + name + ' 点歌的频率太高，请稍后再试。限制时间：' + songRequestLimitInSeconds + '秒');
-        return;
+        sendMessage('@' + name + ' 点歌的频率太高，请稍后再试。限制时间：' + songRequestLimitInSeconds + '秒')
+        return
     }
 
     // 更新用户的点歌时间戳
-    userSongTimestamps[id] = currentTime;
+    userSongTimestamps[id] = currentTime
 
     // 更新上一首点的歌曲信息
-    lastRequestedSong = songRequest;
+    lastRequestedSong = songRequest
 
     // 在这里执行你的点歌处理逻辑
-    console.log('收到点歌请求:', songRequest);
+    console.log('收到点歌请求:', songRequest)
 
     // 定义一个处理成功地回调函数
     function onSuccess(url, songName) {
-        console.log('成功获取歌曲 URL:', url);
-        console.log('歌曲名称:', songName);
+        console.log('成功获取歌曲 URL:', url)
+        console.log('歌曲名称:', songName)
         // 在这里执行你的进一步操作，比如发送音乐请求
-        sendMusicRequest(url, songName);
+        sendMusicRequest(url, songName)
     }
 
     // 定义一个处理失败的回调函数
     function onError(errorMessage) {
-        console.error('获取歌曲 URL 失败:', errorMessage);
+        console.error('获取歌曲 URL 失败:', errorMessage)
         // 在这里执行你的错误处理逻辑
     }
 
     // 示发送请求获取歌曲信息
-    getSongInfo(songRequest, onSuccess, onError);
+    getSongInfo(songRequest, onSuccess, onError)
 }
 
 // 发送音乐函数
@@ -283,34 +283,34 @@ function sendMusicRequest(url, name) {
         music: 'music',
         url: url,
         name: name
-    };
+    }
 
     // 发送 POST 请求
     $.post('/room/?ajax=1', requestData, function(responseData) {
         if (!responseData) {
             // 响应为空，发送音乐成功
-            console.log('发送音乐成功！');
+            console.log('发送音乐成功！')
         } else if (responseData === '慢一点，你发送得太快了！') {
             // 响应为 '慢一点，你发送得太快了！'，等待2秒后重新发送
             console.log('发送音乐过快，等待3秒后重新发送...')
             setTimeout(function() {
-                sendMusicRequest(url, name); // 重新发送音乐请求
-            }, 3000); // 等待3秒
+                sendMusicRequest(url, name) // 重新发送音乐请求
+            }, 3000) // 等待3秒
         } else {
             // 其他情况，处理响应数据
             console.log('处理响应数据:', responseData)
         }
     }).fail(function(error) {
         // 处理请求失败的情况
-        console.error('发送音乐请求失败:', error);
-    });
+        console.error('发送音乐请求失败:', error)
+    })
 }
 
 // 替换酷我域名支持https
 function replaceDomain(url) {
     // 使用正则表达式替换规则
     return url.replace(/http:\/\/([^\/]+)\.sycdn\.kuwo\.cn/g, function (match, p1) {
-        let parts = p1.split('.');
+        let parts = p1.split('.')
         if (parts.length >= 3) {
             return 'https://' + parts.join('-') + '-sycdn.kuwo.cn'
         } else {
@@ -324,7 +324,7 @@ function sendMessage(message) {
     // 创建包含消息数据的对象
     let dataToSend = {
         message: message
-    };
+    }
 
     // 发送 POST 请求
     $.ajax({
@@ -335,17 +335,17 @@ function sendMessage(message) {
             // 请求成功的处理
             if (response === "") {
                 // 响应为空，表示发送消息成功
-                console.log("消息发送成功！");
+                console.log("消息发送成功！")
             } else {
                 // 响应不为空，可能包含错误信息或其他内容
-                console.log("消息发送失败，响应内容：" + response);
+                console.log("消息发送失败，响应内容：" + response)
             }
         },
         error: function(jqXHR, textStatus) {
             // 请求失败的处理
-            console.error("消息发送失败，错误信息：" + textStatus);
+            console.error("消息发送失败，错误信息：" + textStatus)
         }
-    });
+    })
 }
 
 // 通过关键词获取音乐url
@@ -376,7 +376,7 @@ function getSongInfo(keyword, successCallback, errorCallback) {
                     }
                 }).fail(function() {
                     errorCallback('获取歌曲 URL 失败') // 调用错误回调函数
-                });
+                })
             } else {
                 console.error('无法获取歌曲信息数组或数组为空')
                 errorCallback('无法获取歌曲信息数组或数组为空') // 调用错误回调函数
@@ -388,7 +388,7 @@ function getSongInfo(keyword, successCallback, errorCallback) {
     }).fail(function(error) {
         console.error('获取歌曲信息数组失败:', error)
         errorCallback('获取歌曲信息数组失败') // 调用错误回调函数
-    });
+    })
 }
 
 // 创建一个类型到处理函数的映射
@@ -405,18 +405,18 @@ $(document).ajaxSuccess(function(event, xhr, settings) {
     if (settings.type === 'GET' && settings.url.includes('update')) {
         try {
             // 解析响应数据为 JSON 对象
-            const responseData = JSON.parse(xhr.responseText);
+            const responseData = JSON.parse(xhr.responseText)
 
             // 检查是否有名为 "talks" 的属性，且它是一个数组且不为空
             if (Array.isArray(responseData.talks) && responseData.talks.length > 0) {
                 // 访问 "talks" 数组并遍历其中的元素
-                const talksArray = responseData.talks;
+                const talksArray = responseData.talks
                 console.log('请求最新消息完成。最新消息:')
                 talksArray.forEach(talk => {
                     // 根据 "type" 属性调用相应的处理函数
                     const handler = typeToHandler[talk.type]
                     if (handler) {
-                        handler(talk);
+                        handler(talk)
                     } else {
                         console.log('未知类型:', talk.type)
                     }
@@ -436,50 +436,50 @@ $(document).ajaxSend(function(event, xhr, settings) {
     // 检查请求类型是否为 POST 且请求的 URL 包含 "ajax"
     if (settings.type === 'POST' && settings.url.includes('ajax')) {
         // 获取请求数据
-        const requestDatas = settings.data;
+        const requestDatas = settings.data
 
         // 检查 requestData 是否包含 "message"
         if (requestDatas.includes('message')) {
             // 如果包含 "message"，继续检查是否同时包含 "url" 和 "to"
             if (requestDatas.includes('url') && requestDatas.includes('to')) {
-                console.log('用户主动通过表单发送消息');
+                console.log('用户主动通过表单发送消息')
             } else {
-                console.log('脚本自动处理发送消息');
+                console.log('脚本自动处理发送消息')
                 let name = localStorage.username  // 获取本地用户名
                 // 使用 URLSearchParams 来解析
-                const params = new URLSearchParams(requestDatas);
+                const params = new URLSearchParams(requestDatas)
                 // 获取键值对
-                const requestData = {};
+                const requestData = {}
                 for (const [key, value] of params) {
-                    requestData[key] = value;
+                    requestData[key] = value
                 }
                 // 从本地存储中获取 currentIconName
                 const storedIconName = localStorage.getItem('currentIconName')
                 if (!storedIconName || storedIconName === '') { // 如果 storedIconName 不存在或为空字符串
-                    const userResponse = confirm('图标不存在或为空。是否返回等候室重新获取图标？');
+                    const userResponse = confirm('图标不存在或为空。是否返回等候室重新获取图标？')
 
                     if (userResponse) {
                         // 用户点击了确认按钮，执行 POST 请求
                         $.post('/room/?ajax=1', { leave: 'leave' }, function(responseData) {
                             if (!responseData) {
                                 // 如果 POST 请求成功并且响应为空，执行重定向逻辑
-                                console.log('POST 请求成功，返回等候室。');
-                                window.location.href = '/lounge'; // 重定向到等候室页面
+                                console.log('POST 请求成功，返回等候室。')
+                                window.location.href = '/lounge' // 重定向到等候室页面
                             } else {
                                 // 如果 POST 请求成功但响应不为空，可以根据需要执行其他操作
-                                console.log('POST 请求成功，但响应不为空:', responseData);
+                                console.log('POST 请求成功，但响应不为空:', responseData)
                             }
                         }).fail(function(error) {
                             // 处理请求失败的情况
-                            console.error('POST 请求失败:', error);
-                        });
+                            console.error('POST 请求失败:', error)
+                        })
                     } else {
                         // 用户点击了取消按钮，可以执行其他操作或不执行任何操作
-                        console.log('用户取消了返回等候室操作。');
+                        console.log('用户取消了返回等候室操作。')
                     }
                 }
                 // 插入本地消息
-                const talks = document.getElementById('talks');
+                const talks = document.getElementById('talks')
                 const div = `
                     <dl class="talk ${storedIconName}">
                         <dt class="dropdown user">
@@ -491,14 +491,14 @@ $(document).ajaxSend(function(event, xhr, settings) {
                         </dt>
                         <dd>
                             <div class="bubble">
-                                <div class="tail-wrap center" style="background-size: 65px;">
+                                <div class="tail-wrap center" style="background-size: 65px">
                                     <div class="tail-mask"></div>
                                 </div>
                                 <p class="body select-text">${requestData.message}</p>
                             </div>
                         </dd>
                     </dl>
-                `;
+                `
 
                 setTimeout(function(){  // 延迟1.5秒插入本地消息
                     talks.insertAdjacentHTML("afterbegin", div)
@@ -506,4 +506,4 @@ $(document).ajaxSend(function(event, xhr, settings) {
             }
         }
     }
-});
+})
