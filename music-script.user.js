@@ -13,7 +13,6 @@
 
 // 定义全局变量
 let currentIconName = '' // 创建一个变量以存储当前图标名称
-let autoSongInProgress = false // 添加一个标志来表示是否正在进行自动点歌的操作
 let playCompleteFlag = 0    // 创建播放完成标志，初始值为0
 let playStartFlag = 0       // 创建播放开始标志，初始值为0
 let lastRequestedSong = null // 外部创建一个变量来存储上一首点的歌曲信息
@@ -157,14 +156,12 @@ function waitForMusicPlayer() {
                     if (isActive && Player.nowPlaying.time === 0 && Player.isPausing) {
                         if (playStartFlag % 2 === 0) {
                             console.log('播放开始');
-                            autoSongInProgress = true
                         }
                         playStartFlag++;
                     } else if (isInactive && Player.isPausing && Player.nowPlaying.time === 0 && ariaValuenow === '100') {
                         if (playCompleteFlag % 2 === 0) {
                             console.log('播放结束');
                             // 音乐播放完毕后触发自动点歌逻辑
-                            autoSongInProgress = false
                             autoSongRequest();
                         }
                         playCompleteFlag++;
@@ -302,20 +299,12 @@ function waitForElementToExist(selector, callback) {
 
 // 自动点歌逻辑
 function autoSongRequest() {
-    // 如果正在进行自动点歌的操作，则直接返回，避免重复调用
-    if (autoSongInProgress) {
-        console.log('正在自动点歌中，不重复操作。')
-        return
-    }
 
     // 如果正在播放音乐,这直接返回,避免重复点歌
     if(Player.isPausing === false){
         console.log('正在播放音乐，不重复点歌。')
         return
     }
-
-    // 设置标志为 true，表示正在进行自动点歌的操作
-    autoSongInProgress = true
 
     if (songList.length > 0) {
 
