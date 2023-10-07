@@ -65,6 +65,12 @@ function initialize() {
 
     // 创建并添加样式表
     createAndAppendStylesheet()
+
+    // 创建设置按钮
+    createAndAppendSettingsButton()
+
+    // 设置按钮点击事件
+    settingsButtonClick()
 }
 
 
@@ -98,6 +104,41 @@ function createAndAppendStylesheet() {
 
     // 将link元素附加到文档的head中
     document.head.appendChild(link)
+}
+
+// 创建并添加设置按钮
+function createAndAppendSettingsButton() {
+    //const n=document.getElementById('np');const s=document.createElement('span');s.style.cssText='position:absolute;right:20px;color:red';s.textContent='脚本设置';n.appendChild(s)
+    waitForElementToExist('#np',(element) => {
+        element.style.position = 'relative' // 播放器设置相对定位
+        const spanElement = document.createElement('span')  // 创建span标签插入
+        spanElement.style.position = 'absolute'
+        spanElement.style.right = '0px'
+        spanElement.style.color = '#fff'
+        spanElement.style.padding = '0 10px'
+        spanElement.style.backgroundColor = '#4dbd3c'
+        spanElement.textContent = '脚本设置'
+        spanElement.id = 'settings'
+        element.appendChild(spanElement)
+    })
+}
+
+// 设置按钮点击事件
+function settingsButtonClick() {
+    waitForElementToExist('#settings', (element) => {
+        element.addEventListener('click', () => {
+            console.log('点击了设置按钮')
+            layer.open({
+                type: 1, // page 层类型
+                title: '脚本设置',
+                shade: 0.6, // 遮罩透明度
+                shadeClose: true, // 点击遮罩区域，关闭弹层
+                maxmin: true, // 允许全屏最小化
+                anim: 6, // 0-6 的动画形式，-1 不开启
+                content: '<div style="padding: 32px;">一个普通的页面层，传入了自定义的 HTML</div>'
+            });
+        })
+    })
 }
 
 // 等待音乐播放器元素出现
