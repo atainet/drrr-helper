@@ -111,7 +111,7 @@
     }
 
     // 发送随机音乐
-    async function sendRandomMusic() {
+    async function   sendRandomMusic() {
         console.log('播放随机歌曲')
         // 随机音乐列表
         const musicList = [
