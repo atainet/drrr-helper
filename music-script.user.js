@@ -151,7 +151,7 @@ function waitForMusicPlayer() {
             for (let mutation of mutationsList) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                     // 检查元素的class是否包含'active'且aria-valuenow属性为100
-                    if (element.classList.contains('active')) {
+                    if (element.classList.contains('active') && Player.nowPlaying.time === 0 && Player.isPausing) {
                         // 只有当playStartFlag为偶数时执行
                         if (playStartFlag % 2 === 0) {
                             // 执行播放开始操作
@@ -164,7 +164,7 @@ function waitForMusicPlayer() {
 
                         // 增加playStartFlag的值
                         playStartFlag++
-                    } else if (element.classList.contains('inactive') && Player.isPausing && element.getAttribute('aria-valuenow') === '100') { // 当前播放进度必须到达100才执行自动播放
+                    } else if (element.classList.contains('inactive') && Player.isPausing && Player.nowPlaying.time === 0 && element.getAttribute('aria-valuenow') === '100') { // 当前播放进度必须到达100才执行自动播放
                         // 只有当playCompleteFlag为偶数时执行
                         if (playCompleteFlag % 2 === 0) {
                             // 执行播放完毕操作
