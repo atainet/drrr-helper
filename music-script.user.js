@@ -143,46 +143,39 @@ function settingsButtonClick() {
 
 // 等待音乐播放器元素出现
 function waitForMusicPlayer() {
-    // 监听播放状态变化
+    // 等待播放器元素出现
     waitForElementToExist('.player-inner-wrap .progress-music', (element) => {
-        console.log('已找到音乐播放器元素')
+        console.log('已找到音乐播放器元素');
         // 创建 MutationObserver 来监视元素的属性变化
         const observer = new MutationObserver((mutationsList) => {
             for (let mutation of mutationsList) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                    // 检查元素的class是否包含'active'且aria-valuenow属性为100
-                    if (element.classList.contains('active') && Player.nowPlaying.time === 0 && Player.isPausing) {
-                        // 只有当playStartFlag为偶数时执行
+                    const isActive = element.classList.contains('active');
+                    const isInactive = element.classList.contains('inactive');
+                    const ariaValuenow = element.getAttribute('aria-valuenow');
+
+                    if (isActive && Player.nowPlaying.time === 0 && Player.isPausing) {
                         if (playStartFlag % 2 === 0) {
-                            // 执行播放开始操作
-                            console.log('播放开始')
-                            // 5秒后执行的定时器，用于在播放开始时将标志设置为false
-                            setTimeout(function() {
-                                autoSongInProgress = false
-                            }, 5000) // 5秒后执行
+                            console.log('播放开始');
+                            autoSongInProgress = true
                         }
-
-                        // 增加playStartFlag的值
-                        playStartFlag++
-                    } else if (element.classList.contains('inactive') && Player.isPausing && Player.nowPlaying.time === 0 && element.getAttribute('aria-valuenow') === '100') { // 当前播放进度必须到达100才执行自动播放
-                        // 只有当playCompleteFlag为偶数时执行
+                        playStartFlag++;
+                    } else if (isInactive && Player.isPausing && Player.nowPlaying.time === 0 && ariaValuenow === '100') {
                         if (playCompleteFlag % 2 === 0) {
-                            // 执行播放完毕操作
-                            console.log('播放结束')
+                            console.log('播放结束');
                             // 音乐播放完毕后触发自动点歌逻辑
-                            autoSongRequest()
+                            autoSongInProgress = false
+                            autoSongRequest();
                         }
-
-                        // 增加playCompleteFlag的值
-                        playCompleteFlag++
+                        playCompleteFlag++;
                     }
                 }
             }
-        })
+        });
 
         // 开始监视元素的属性变化
-        observer.observe(element, { attributes: true })
-    })
+        observer.observe(element, { attributes: true });
+    });
 }
 
 //  设置 AJAX 请求监听器
@@ -394,6 +387,7 @@ function handleSongRequest(songRequest, name, id) {
     function onError(errorMessage) {
         console.error('获取歌曲 URL 失败:', errorMessage)
         // 在这里执行你的错误处理逻辑
+        sendMessage('获取歌曲 URL 失败, 请稍后再试。')
     }
 
     // 示发送请求获取歌曲信息
