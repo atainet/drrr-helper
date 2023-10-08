@@ -7,7 +7,7 @@
 // @require     https://fastly.jsdelivr.net/npm/layer-src@3.5.1/src/layer.min.js
 // @resource    layerCss  https://fastly.jsdelivr.net/npm/layer-src@3.5.1/dist/theme/default/layer.min.css
 // @unwrap
-// @version     3.1.0
+// @version     3.1.1
 // @author      QQ:121610059
 // @update      2023-06-06 14:02:31
 // @supportURL  https://greasyfork.org/zh-CN/scripts/414535-drrr-com%E6%99%BA%E8%83%BD%E8%84%9A%E6%9C%AC-%E8%87%AA%E5%8A%A8%E5%AF%B9%E8%AF%9D-%E8%87%AA%E5%8A%A8%E7%82%B9%E6%AD%8C
