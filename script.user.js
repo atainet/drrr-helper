@@ -4,348 +4,980 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://drrr.com/*
 // @license     MIT
-// @grant       GM_addStyle
-// @grant       GM_setValue
-// @grant       GM_getValue
-// @grant       GM_getResourceText
-// @grant       GM_addElement
-// @run-at      document-end
-// @resource    hsycmsAlertCss https://sywlgzs.gitee.io/hsycmsalert/hsycmsAlert.min.css
-// @resource    customCss https://ghps.cc/https://raw.githubusercontent.com/atainet/drrr-helper/master/static/css/style.css
-// @require     https://unpkg.com/pxmu@1.1.0/dist/web/pxmu.min.js
-// @version     3.0.2
+// @require     https://fastly.jsdelivr.net/npm/layer-src@3.5.1/src/layer.min.js
+// @resource    layerCss  https://fastly.jsdelivr.net/npm/layer-src@3.5.1/dist/theme/default/layer.min.css
+// @unwrap
+// @version     3.1.0
 // @author      QQ:121610059
 // @update      2023-06-06 14:02:31
 // @supportURL  https://greasyfork.org/zh-CN/scripts/414535-drrr-com%E6%99%BA%E8%83%BD%E8%84%9A%E6%9C%AC-%E8%87%AA%E5%8A%A8%E5%AF%B9%E8%AF%9D-%E8%87%AA%E5%8A%A8%E7%82%B9%E6%AD%8C
 // ==/UserScript==
 
-(function () {
+// 定义全局变量
+let currentIconName = '' // 创建一个变量以存储当前图标名称
+let lastRequestedSong = null // 外部创建一个变量来存储上一首点的歌曲信息
+const userSongTimestamps = {}  // 外部创建一个对象来跟踪每个用户的点歌时间戳// 外部创建一个对象来跟踪每个用户的点歌时间戳
+// 检测本地存储是否已经存在songList
+if (!localStorage.getItem('songList')) {
+    // 如果不存在，将数组中的数据设置为本地存储的songList
+    localStorage.setItem('songList', JSON.stringify([
+        '极乐净土',
+        'aLIEZ',
+        'only my railgun',
+        '恋爱循环',
+        '打上花火',
+        '我的战争',
+        '菲克瑟先生',
+        'Lost in Paradise',
+        'Under the tree',
+        'Last stardust',
+        '青鸟',
+        '直到世界尽头'
+    ]));
+}
 
-    'use strict'
+// 从本地存储中获取songList
+let songList = JSON.parse(localStorage.getItem('songList'));
+// 创建一个消息类型到处理函数的映射
+const typeToHandler = {
+    'join': handleJoin,
+    'leave': handleLeave,
+    'message': handleMessage
+}
 
-    // 页面中插入css样式
-    GM_addStyle(GM_getResourceText('hsycmsAlertCss') + GM_getResourceText('customCss'))
-    // 判断当前是否在等候室
-    const isWaitingRoom = location.pathname.includes('lounge')
-    // 判断当前是否在房间
-    const isRoom = location.pathname.includes('room')
-    // 脚本drrr名称
-    const drrrName = localStorage.username
-    // 登陆成功后提示脚本注入成功
-    if (isWaitingRoom){
-        pxmu.toast('success','油猴脚本注入成功')
+// 添加全局事件监听器
+$(document).ready(function () {
+    // 初始化逻辑
+    initialize()
+
+    // 监听音乐播放状态
+    musicPlaybackStatus()
+
+    // 监控talks子元素数量不超过50，并以倒序方式移除超过指定数量的子元素。
+    monitorTalksElement()
+
+    // 添加 AJAX 请求监听器
+    setupAjaxListeners()
+})
+
+// 初始化函数
+function initialize() {
+    // 获取当前图标名称
+    getCurrentIconName()
+
+    // 创建并添加样式表
+    createAndAppendStylesheet()
+
+    // 当自动放歌功能打开时页面加载成功提示确认放歌
+    showConfirmationDialog()
+
+    // 创建设置按钮
+    createAndAppendSettingsButton()
+
+    // 设置按钮点击事件
+    settingsButtonClick()
+}
+
+// 获取当前图标名称
+function getCurrentIconName() {
+    // 检查当前位置是否包含 "lounge"
+    if (window.location.href.includes('lounge')) {
+        // 获取图标的类名
+        const iconClassName = document.querySelector('.icon .avatar').classList[1]
+
+        // 使用正则表达式替换 "avatar-" 为空字符串，以获取图标名称
+        currentIconName = iconClassName.replace(/^avatar-/, '')
+
+        // 将获取的 currentIconName 写入本地存储
+        if (currentIconName) {
+            localStorage.setItem('currentIconName', currentIconName)
+            logMessage('获取用户icon成功','success')
+        }
     }
-    // 进入房间后
-    if (isRoom){
-        // 插入控制面板
-        insertDrrrHelperControlPanel()
-        // 禁用发送消息表单
-        document.querySelector('[name=message]').disabled = true
-        document.querySelector('[name=post]').disabled = true
+}
+
+// 创建并添加样式表
+function createAndAppendStylesheet() {
+    // 创建一个link元素
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.type = 'text/css'
+    link.href = 'https://fastly.jsdelivr.net/npm/layer-src@3.5.1/dist/theme/default/layer.min.css'
+
+    // 将link元素附加到文档的head中
+    document.head.appendChild(link)
+
+    // 插入控制面板样式
+    // 创建一个<style>元素
+    var styleElement = document.createElement('style');
+
+    // 在<style>元素中添加你的CSS样式
+    styleElement.innerHTML = `#tip{color: #000;}.settingContainer{width:100%;height:100%;background-color:rgb(77,189,60);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;box-sizing:border-box}.settingContainer button{background-color:#fff;border-radius:5px;border:1px solid #000;color:#000}.settingTiele{color:#fff;font-weight:bold;font-size:2rem;margin-bottom:1rem}.randomSongListsTextarea{display:flex;width:100%;justify-content:center}.randomSongListsTextarea textarea{width:100%}.panel{margin-top:1rem;display:flex;align-items:center;justify-content:space-between;width:100%}.panel .right{height:100%;color:#fff;display:flex;justify-content:center;align-items:center;padding:0 1rem;border:1px solid #fff;border-radius:5px;flex-direction:column-reverse}.panel .right .checkBox{margin:0 0.2rem;display:flex;align-items:center}.panel .right .checkBox label{margin-bottom:0}textarea{border:none;outline:none;padding:0;margin:0;-webkit-appearance:none;-moz-appearance:none;appearance:none;background-image:none;background-color:transparent;font-size:inherit;width:100%}textarea:focus{outline:none}.textarea{display:inline-block;resize:vertical;padding:5px 15px;line-height:1.5;box-sizing:border-box;color:#606266;background-color:#fff;border:1px solid #dcdfe6;border-radius:4px;transition:border-color 0.2s cubic-bezier(0.645,0.045,0.355,1)}.textarea::placeholder{color:#c0c4cc}.textarea:hover{border-color:#c0c4cc}.textarea:focus{border-color:#3677f0}.savebtn{color:#0099CC;background:transparent;border:2px solid #0099CC;border-radius:6px;border:none;color:white;padding:16px 32px;text-align:center;display:inline-block;font-size:16px;-webkit-transition-duration:0.4s;transition-duration:0.4s;cursor:pointer;text-decoration:none;text-transform:uppercase}.savebtn{background-color:white;color:black;border:2px solid #008CBA}.savebtn:hover{background-color:#000;color:white;border:1px solid #fff}@media screen and (min-width:769px){textarea.textarea,.panel{width:50%}}`;
+
+    // 将<style>元素添加到页面的<head>部分
+    document.head.appendChild(styleElement);
+}
+
+// 创建并添加设置按钮
+function createAndAppendSettingsButton() {
+    waitForElementToExist('#np',(element) => {
+        element.style.position = 'relative' // 播放器设置相对定位
+        const spanElement = document.createElement('span')  // 创建span标签插入
+        spanElement.style.position = 'absolute'
+        spanElement.style.right = '0px'
+        spanElement.style.color = '#fff'
+        spanElement.style.padding = '0 10px'
+        spanElement.style.backgroundColor = '#4dbd3c'
+        spanElement.textContent = '脚本设置'
+        spanElement.id = 'settings'
+        element.appendChild(spanElement)
+    })
+}
+
+// 封装函数，页面加载完成确认自动放歌对话框
+function showConfirmationDialog() {
+    // 自动播放的歌曲加载需要时间
+    setTimeout(() =>{
+        const autoChecked = localStorage.getItem("autoChecked") === "true";
+        console.log(autoChecked)
+        console.log(Player.isPausing)
+        // 自动放歌打开和现在没有在播放歌曲时提示
+        if (autoChecked && Player.isPausing) {
+            let tip = layer.confirm('检测到自动点放歌功已开启,现在是否要播放随机随机歌曲？', {
+                title: '提示信息',
+                id: 'tip',
+                btn: ['需要', '不需要'] // 按钮
+            }, function () {
+                layer.msg('准备播放随机歌曲')
+                autoSongRequest()   // 开始自动播放
+                layer.close(tip)    // 关闭提示框
+            })
+        }
+    },2000)
+}
+
+//  监控talks子元素数量，并以倒序方式移除超过指定数量的子元素。
+function monitorTalksElement(maxElementCount = 50) {
+    // 获取 #talks 元素
+    const talksElement = document.querySelector('#talks');
+
+    if (!talksElement) {
+        return; // 如果找不到 #talks 元素，则退出函数
     }
 
-    // 拦截消息
-    let interceptSend = false
-    $.ajaxSetup({
-        complete: function (XMLHttpRequest) {
-            // 获取拦截的url地址
-            const url = this.url
-            // 解构新消息
-            const { responseJSON } = XMLHttpRequest
-            // 判断是不是非空消息并且忽略用户主动发送信息的返回消息
-            if (url.includes('update') && responseJSON.talks.length > 0 && interceptSend === false) {
-                const { talks } = responseJSON
-                // 新消息有一定概率不是一条消息遍历新消息
-                for (const message of talks) {
-                    if (message.type !== 'user-profile') {
-                        // 调用函数处理消息
-                        window[message.type](message)
+    // 创建 MutationObserver 对象以监听子元素变化
+    const observer = new MutationObserver(function (mutationsList) {
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+                const currentChildCount = talksElement.children.length;
+
+                // 如果子元素数量超过指定的最大数量，倒序移除超出的元素
+                if (currentChildCount > maxElementCount) {
+                    const elementsToRemove = currentChildCount - maxElementCount;
+                    for (let i = 0; i < elementsToRemove; i++) {
+                        talksElement.removeChild(talksElement.lastElementChild); // 移除最后一个子元素
                     }
+                }
+            }
+        }
+    });
+
+    // 开始监听 #talks 元素的子元素变化
+    observer.observe(talksElement, { childList: true });
+}
+
+// 封装函数，用于创建设置窗口
+function createSettingsWindow() {
+    layer.open({
+        title: '脚本设置',
+        move: false,
+        type: 1,
+        offset: 'b',
+        anim: 'slideUp',
+        area: ['100%', '100%'],
+        shade: 0.1,
+        shadeClose: true,
+        content: `
+            <div class="settingContainer">
+                <div class="settingTiele">设置随机歌单</div>
+                <div class="randomSongListsTextarea">
+                    <textarea class="textarea" rows="18"></textarea>
+                </div>
+                <div class="tips" style="margin-top: 1rem;color: #fff;">提示: 一行就是一首随机歌曲,自动放歌会从上面输入框中随机抽取一首歌进行搜索播放,修改后需保存!</div>
+                <div class="panel">
+                    <div class="left">
+                        <button class="savebtn" id="save">保存歌单</button>
+                    </div>
+                    <a href="https://wpa.qq.com/msgrd?v=3&uin=1221610059&site=qq&menu=yes&jumpflag=1" target="_blank" style="text-decoration: none">反馈问题</a>
+                    <div class="right">
+                        <div class="checkBox"><input name="checkbox" type="checkbox" id="auto" value="1"><label for="auto">&nbsp自动放歌</label></div>
+                        <div class="checkBox"><input name="checkbox2" type="checkbox" id="song" value="1"><label for="song">&nbsp自助点歌</label></div>
+                    </div>
+                </div>
+            </div>`
+    });
+
+    // 返回设置窗口的 DOM 元素
+    return document.querySelector('.randomSongListsTextarea textarea');
+}
+
+// 封装函数，用于监听保存按钮点击事件
+function listenSaveButtonClick() {
+    waitForElementToExist('#save', (element) => {
+        element.addEventListener('click', () => {
+            let songListTextarea = document.querySelector('.randomSongListsTextarea textarea');
+            const newSongList = songListTextarea.value.split('\n').filter(item => item !== '');
+
+            if (arraysAreEqual(newSongList, songList)) {
+                logMessage('歌曲列表没有更改，无需保存', 'success');
+                layer.msg('歌曲列表没有更改，无需保存');
+            } else {
+                localStorage.setItem('songList', JSON.stringify(newSongList));
+                songList = newSongList;
+                logMessage('保存成功', 'success');
+                layer.msg('保存成功');
+            }
+        });
+    });
+}
+
+// 封装函数，用于监听复选框变化事件
+function listenCheckboxChange(autoCheckbox, message, successMessage, warningMessage, callback) {
+    autoCheckbox.addEventListener("change", function () {
+        const isChecked = this.checked; // 获取复选框状态
+        localStorage.setItem(message, isChecked);
+        if (this.checked) {
+            layer.msg(successMessage);
+            logMessage(successMessage, "success");
+
+            if (typeof callback === "function") {
+                callback();
+            }
+
+            // 在自助点歌功能开启时发送消息
+            if (message === "songChecked") {
+                sendMessage('自助点歌功能已开启,自助点歌格式为:点歌+歌名');
+            }
+
+            // 在自动放歌功能开启时触发提示并发送消息
+            if (message === "autoChecked" && isChecked) {
+                layer.msg('自动放歌功能已开启');
+                logMessage("自动放歌功能已开启", "success");
+                sendMessage('自动放歌功能已开启');
+            }
+        } else {
+            layer.msg(warningMessage);
+            logMessage(warningMessage, "warning");
+
+            // 在自助点歌功能关闭时发送消息
+            if (message === "songChecked") {
+                sendMessage('自助点歌功能已关闭');
+            }
+
+            // 在自动放歌功能关闭时触发提示并发送消息
+            if (message === "autoChecked" && !isChecked) {
+                layer.msg('自动放歌功能已关闭');
+                logMessage("自动放歌功能已关闭", "warning");
+                sendMessage('自动放歌功能已关闭');
+            }
+        }
+    });
+}
+
+// 设置按钮点击事件
+function settingsButtonClick() {
+    waitForElementToExist('#settings', (element) => {
+        element.addEventListener('click', () => {
+            const songListTextarea = createSettingsWindow();
+
+            // 拼接歌曲列表显示到文本框中
+            waitForElementToExist('.randomSongListsTextarea textarea', (element) => {
+                element.value = songList.join('\n');
+            });
+
+            listenSaveButtonClick();
+
+            // 获取复选框元素
+            const autoCheckbox = document.getElementById("auto");
+            const songCheckbox = document.getElementById("song");
+
+            // 初始化本地存储值
+            const autoChecked = localStorage.getItem("autoChecked") === "true";
+            const songChecked = localStorage.getItem("songChecked") === "true";
+
+            // 根据本地存储值设置复选框状态
+            autoCheckbox.checked = autoChecked;
+            songCheckbox.checked = songChecked;
+
+            // 监听复选框变化事件
+            listenCheckboxChange(
+                autoCheckbox,
+                "autoChecked",
+                "自动放歌功能已开启",
+                "自动放歌功能已关闭",
+                () => {
+                    if (Player.isPausing) {
+                        autoSongRequest();
+                    }
+                }
+            );
+
+            listenCheckboxChange(
+                songCheckbox,
+                "songChecked",
+                "自助点歌功能已开启",
+                "自助点歌功能已关闭"
+            );
+        });
+    });
+
+    // 注册键盘保存事件
+    document.addEventListener('keydown', function(event) {
+        if (event.ctrlKey && (event.key === 's' || event.key === 'S')) {
+            event.preventDefault();
+            const specifiedElement = document.querySelector('.randomSongListsTextarea textarea');
+            if (specifiedElement) {
+                const save = document.querySelector('#save')
+                save.click()
+            }
+        }
+    });
+}
+
+// 检查两个数组是否相等
+function arraysAreEqual(arr1, arr2) {
+    if (arr1.length !== arr2.length) {
+        return false;
+    }
+    for (let i = 0; i < arr1.length; i++) {
+        if (arr1[i] !== arr2[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// 打印带有不同样式的消息。
+function logMessage(message, messageType) {
+    let color = "black"; // 默认为黑色文本
+
+    // 根据消息类型设置颜色
+    if (messageType === "success") {
+        color = "green"; // 成功消息显示为绿色
+    } else if (messageType === "error") {
+        color = "red"; // 错误消息显示为红色
+    } else if (messageType === "warning") {
+        color = "orange"; // 警告消息显示为橙色
+    }
+
+    // 获取当前时间，并格式化为 [YYYY-M-D H:i:s] 格式
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0"); // 月份是从 0 开始的，所以要加 1
+    const day = String(now.getDate()).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const seconds = String(now.getSeconds()).padStart(2, "0");
+
+    // 格式化时间
+    const formattedTimestamp = `[${year}-${month}-${day} ${hours}:${minutes}:${seconds}]`;
+
+    // 组合时间戳和消息文本
+    const logText = `${formattedTimestamp} ${message}`;
+
+    // 使用控制台打印带有样式的消息
+    console.log(`%c${logText}`, `color: ${color}; font-weight: bold;`);
+}
+
+// 监听音乐播放状态
+function musicPlaybackStatus() {
+
+    // 音乐开始播放回调
+    function onMusicStart(_this) {
+        logMessage('音乐开始播放','success')
+        _this.howl.seek(0)  // 从头开始播放
+    }
+
+    // 音乐播放结束回调
+    function onMusicEnd(_this) {
+        logMessage('音乐播放结束', 'success');
+
+        // 检查本地存储值 autoChecked
+        const autoChecked = localStorage.getItem("autoChecked") === "true";
+
+        if (autoChecked) {
+            // 如果自动点歌功能已启用，执行自动点歌逻辑
+            autoSongRequest();
+        } else {
+            // 如果自动点歌功能未启用，显示提示信息
+            logMessage("自助点歌功能未启用", 'warning');
+        }
+    }
+
+    // hook 音乐播放状态
+    MusicItem = function() {
+        function e(n) {
+            var r = this;
+            _classCallCheck(this, e),
+                this.music = n,
+                this.name = DRRRClientBehavior.literalMusicTitle(n),
+                this.url = n.playURL,
+                this.schedule = null;
+            var o = function() {
+                r._unschedule_progress_update(100),
+                visualizerEnabled && visualizer.stop(),
+                    Player.isPausing = !0,
+                    $(document).trigger("music-end", r)
+            }
+                , i = function() {
+                r._unschedule_progress_update(100 * r.percent())
+            }
+                , a = function() {
+                r._schedule_progress_update()
+            }
+                , s = function() {
+                r._unschedule_progress_update()
+            };
+
+            const originalOnPlay = a;
+            const originalOnStop = o;
+
+            "apple_music" == n.source ? this.howl = new AppleMusicBackend(n,{
+                autoplay: !1,
+                onend: () => {
+                    onMusicEnd(this); // 直接调用全局的 onMusicEnd 函数，并传递当前对象（this）
+                    originalOnStop(); // 执行原始的 onstop
+                },
+                onpause: i,
+                onplay: () => {
+                    onMusicStart(this); // 直接调用全局的 onMusicStart 函数，并传递当前对象（this）
+                    originalOnPlay(); // 执行原始的 onplay
+                },
+                onstop: s,
+            }) : this.howl = new Howl({
+                autoplay: !1,
+                src: [this.url],
+                html5: !0,
+                volume: visualizerEnabled ? 1 : Player.volume,
+                onload: function() {
+                    visualizerEnabled && visualizer.play(r._sounds[0]._node)
+                },
+                onend: () => {
+                    onMusicEnd(this); // 直接调用全局的 onMusicEnd 函数，并传递当前对象（this）
+                    originalOnStop(); // 执行原始的 onstop
+                },
+                onpause: i,
+                onplay: () => {
+                    onMusicStart(this); // 直接调用全局的 onMusicStart 函数，并传递当前对象（this）
+                    originalOnPlay(); // 执行原始的 onplay
+                },
+                onstop: s,
+                onloaderror: function(e, n) {
+                    if (r._unschedule_progress_update(),
+                    "No audio support." != n && ("No codec support for selected audio sources." != n || -1 === r.url.indexOf(visualizerUrlPrefix))) {
+                        switch (n = n || "Unknown") {
+                            case 1:
+                                n = "fetching process aborted by user";
+                                break;
+                            case 2:
+                                n = "error occurred when downloading";
+                                break;
+                            case 3:
+                                n = "error occurred when decoding";
+                                break;
+                            case 4:
+                                n = "URL is incorrect or audio/video not supported"
+                        }
+                        visualizerEnabled && visualizer.stop(),
+                            swal(t("Music: "), t("Audio cannot be loaded: {1}", r.name) + "\n\n" + t("Error: {1}", n), "warning")
+                    }
+                },
+                onplayerror: function() {
+                    r.howl.once("unlock", function() {
+                        r.howl.play()
+                    })
+                }
+            })
+        }
+        return _createClass(e, [{
+            key: "volume",
+            value: function(e) {
+                this.howl.volume(e)
+            }
+        }, {
+            key: "_schedule_progress_update",
+            value: function() {
+                var e = this;
+                $(document).trigger("music-start", this),
+                    $(document).trigger("music-update-percent", 100 * this.percent()),
+                    this.schedule = setInterval(function() {
+                        $(document).trigger("music-update-percent", 100 * e.percent())
+                    }, 950)
+            }
+        }, {
+            key: "_unschedule_progress_update",
+            value: function() {
+                var e = arguments.length > 0 && void 0 !== arguments[0] ? arguments[0] : 0;
+                $(document).trigger("music-stop"),
+                    clearInterval(this.schedule),
+                !1 !== e && $(document).trigger("music-update-percent", e)
+            }
+        }, {
+            key: "now",
+            value: function() {
+                return this.howl.seek()
+            }
+        }, {
+            key: "setTime",
+            value: function(e) {
+                var t = this
+                    , n = new Date;
+                0 == this.duration() ? this.howl.once("play", function() {
+                    var r = (new Date - n) / 1e3;
+                    t.howl.seek(e + r)
+                }) : e <= this.duration() ? this.howl.seek(e) : this.howl.stop()
+            }
+        }, {
+            key: "duration",
+            value: function() {
+                return this.howl.duration()
+            }
+        }, {
+            key: "percent",
+            value: function() {
+                return this.now() / this.duration()
+            }
+        }, {
+            key: "play",
+            value: function() {
+                $(document).trigger("music-play", this),
+                    Player.nowPlaying = this,
+                this instanceof Howl && this.stopOthers(),
+                    this.howl.play(),
+                    Player.isPausing = !1,
+                visualizerEnabled && visualizer.resume()
+            }
+        }, {
+            key: "stopOthers",
+            value: function() {
+                var e = this;
+                Player.playList.forEach(function(t) {
+                    t !== e && null != t && null != t.howl && t.stop()
+                })
+            }
+        }, {
+            key: "pause",
+            value: function() {
+                this.howl.pause(),
+                visualizerEnabled && visualizer.pause(),
+                    Player.isPausing = !0
+            }
+        }, {
+            key: "stop",
+            value: function() {
+                Player.isPausing = !0,
+                    this.howl.stop()
+            }
+        }, {
+            key: "unload",
+            value: function() {
+                clearInterval(this.schedule),
+                    this.howl.unload()
+            }
+        }, {
+            key: "previewOnly",
+            get: function() {
+                return "apple_music" == this.music.source && this.howl.previewOnly
+            }
+        }, {
+            key: "time",
+            get: function() {
+                return this.now()
+            }
+        }, {
+            key: "music_object",
+            get: function() {
+                return this.music
+            }
+        }]),
+            e
+    }();
+
+}
+
+//  设置 AJAX 请求监听器
+function setupAjaxListeners() {
+    // 在每个 AJAX 请求成功完成后执行的拦截器
+    $(document).ajaxSuccess(function(event, xhr, settings) {
+        // 检查请求的类型是否为 GET 且请求的 URL 包含 "update"
+        if (settings.type === 'GET' && settings.url.includes('update')) {
+            try {
+                // 解析响应数据为 JSON 对象
+                const responseData = JSON.parse(xhr.responseText)
+
+                // 检查是否有名为 "talks" 的属性，且它是一个数组且不为空
+                if (Array.isArray(responseData.talks) && responseData.talks.length > 0) {
+                    // 访问 "talks" 数组并遍历其中的元素
+                    const talksArray = responseData.talks
+                    logMessage('请求最新消息完成。最新消息:','success')
+                    talksArray.forEach(talk => {
+                        // 根据 "type" 属性调用相应的处理函数
+                        const handler = typeToHandler[talk.type]
+                        if (handler) {
+                            handler(talk)
+                        } else {
+                            logMessage(`未知类型: ${talk.type}`,'warning')
+                        }
+                    })
+                }
+            } catch (error) {
+                logMessage(`无法解析 JSON 响应数据: ${error}`, 'error' )
+            }
+        }
+    })
+    // 添加全局 AJAX 发送前事件监听器
+    $(document).ajaxSend(function(event, xhr, settings) {
+        // 检查请求类型是否为 POST 且请求的 URL 包含 "ajax"
+        if (settings.type === 'POST' && settings.url.includes('ajax')) {
+            // 获取请求数据
+            const requestDatas = settings.data
+
+            // 检查 requestData 是否包含 "message"
+            if (requestDatas.includes('message')) {
+                // 如果包含 "message"，继续检查是否同时包含 "url" 和 "to"
+                if (requestDatas.includes('url') && requestDatas.includes('to')) {
+                    logMessage('用户主动通过表单发送消息', 'success')
+                } else {
+                    logMessage('脚本自动处理发送消息', 'success')
+                    let name = localStorage.username  // 获取本地用户名
+                    // 使用 URLSearchParams 来解析
+                    const params = new URLSearchParams(requestDatas)
+                    // 获取键值对
+                    const requestData = {}
+                    for (const [key, value] of params) {
+                        requestData[key] = value
+                    }
+                    // 从本地存储中获取 currentIconName
+                    const storedIconName = localStorage.getItem('currentIconName')
+                    if (!storedIconName || storedIconName === '') { // 如果 storedIconName 不存在或为空字符串
+                        const userResponse = confirm('图标不存在或为空。是否返回等候室重新获取图标？')
+
+                        if (userResponse) {
+                            // 用户点击了确认按钮，执行 POST 请求
+                            $.post('/room/?ajax=1', { leave: 'leave' }, function(responseData) {
+                                if (!responseData) {
+                                    // 如果 POST 请求成功并且响应为空，执行重定向逻辑
+                                    logMessage('退出房间成功，返回等候室。','success')
+                                    window.location.href = '/lounge' // 重定向到等候室页面
+                                } else {
+                                    // 如果 POST 请求成功但响应不为空，可以根据需要执行其他操作
+                                    logMessage('退出房间状态未知。', 'warning')
+                                    console.log(responseData)
+                                }
+                            }).fail(function(error) {
+                                // 处理请求失败的情况
+                                console.error('POST 请求失败:', error)
+                            })
+                        } else {
+                            // 用户点击了取消按钮，可以执行其他操作或不执行任何操作
+                            logMessage('用户取消了返回等候室操作。','success')
+                        }
+                    }
+                    // 插入本地消息
+                    const talks = document.getElementById('talks')
+                    const div = `
+                    <dl class="talk ${storedIconName}">
+                        <dt class="dropdown user">
+                            <div class="avatar avatar-${storedIconName}"></div>
+                            <div class="name" data-toggle="dropdown">
+                                <span class="select-text">${name}</span>
+                            </div>
+                            <ul class="dropdown-menu" role="menu"></ul>
+                        </dt>
+                        <dd>
+                            <div class="bubble">
+                                <div class="tail-wrap center" style="background-size: 65px">
+                                    <div class="tail-mask"></div>
+                                </div>
+                                <p class="body select-text">${requestData.message}</p>
+                            </div>
+                        </dd>
+                    </dl>
+                `
+
+                    setTimeout(function(){  // 延迟1.5秒插入本地消息
+                        talks.insertAdjacentHTML("afterbegin", div)
+                    }, 1500 )
                 }
             }
         }
     })
+}
 
-    // 处理加入消息
-    window.join = function({ user:{ name } }) {
-        console.log("join: " + name)
-        const welcome_checkbox = document.querySelector('#welcome_checkbox') // 欢迎消息开关
-        if (welcome_checkbox.checked){
-            aiChat('欢迎我加入房间,我的名字是' + name)
+// 定义一个函数，用于等待指定元素出现
+function waitForElementToExist(selector, callback) {
+    const interval = setInterval(() => {
+        // 检查是否存在指定选择器的元素
+        const element = document.querySelector(selector)
+        if (element) {
+            clearInterval(interval) // 停止轮询
+            callback(element) // 调用回调函数并传递找到的元素
         }
+    }, 100) // 每100毫秒检查一次
+}
+
+// 自动点歌逻辑
+function autoSongRequest() {
+
+    if (songList.length > 0) {
+
+        // 随机选择一个歌曲
+        const randomIndex = Math.floor(Math.random() * songList.length)
+
+        // 点歌选定的歌曲
+        const selectedSongName = songList[randomIndex]
+
+        // 使用 getSongInfo 函数来获取歌曲的URL
+        getSongInfo(selectedSongName, function(url, songName) {
+            // 在成功回调函数中点歌
+            logMessage(`自动点歌: ${songName}`, 'success')
+            sendMusicRequest(url, songName)
+        }, function(errorMessage) {
+            logMessage('自动点歌失败:', 'error')
+            console.log(errorMessage)
+        })
+    } else {
+        logMessage('歌曲列表为空，无法自动点歌。', 'error')
+    }
+}
+
+// 自定义处理点歌请求的函数
+function handleSongRequest(songRequest, name, id) {
+
+    // 检查当前这首点的歌曲是否与上一首不一样
+    if (lastRequestedSong === songRequest) {
+        // 上一首点的歌曲与当前这首一样，触发错误提示
+        logMessage('上一首点的歌曲与当前这首相同，忽略点歌。', 'warning')
+        //  发送消息提示用户
+        sendMessage('上一首点的歌曲与当前这首相同，请选择其他歌曲。')
+        return
     }
 
-    // 处理退出消息
-    window.leave = function({ user:{ name } }) {
-        console.log("leave: " + name)
+    // 获取当前时间戳
+    const currentTime = Date.now()
+    // 定义秒数限制，例如设置为 30 秒
+    const songRequestLimitInSeconds = 1
+    // 设置点歌频率的秒数限制
+    const songRequestLimit = songRequestLimitInSeconds * 1000 // 将秒数转换为毫秒
+
+    // 检查用户是否在指定秒数内重复点歌
+    if (userSongTimestamps[id] && currentTime - userSongTimestamps[id] < songRequestLimit) {
+        // 用户在指定秒数内重复点歌，触发错误提示
+        logMessage('@' + name + ' 点歌的频率太高，请稍后再试。限制时间：' + songRequestLimitInSeconds + '秒','warning')
+        // 发送消息提示用户
+        sendMessage('@' + name + ' 点歌的频率太高，请稍后再试。限制时间：' + songRequestLimitInSeconds + '秒')
+        return
     }
 
-    // 处理音乐消息
-    window.music = function({ music:{ name, playURL:url } }) {
-        // 如果不是脚本自己的消息
-        if (drrrName === name){
-            console.log("music: " + name, url)
+    // 更新用户的点歌时间戳
+    userSongTimestamps[id] = currentTime
+
+    // 更新上一首点的歌曲信息
+    lastRequestedSong = songRequest
+
+    // 在这里执行你的点歌处理逻辑
+    logMessage(`收到点歌请求: ${songRequest}`, 'success')
+
+    // 定义一个处理成功地回调函数
+    function onSuccess(url, songName) {
+        logMessage(`成功获取歌曲 URL: ${url}`, 'success')
+        logMessage(`歌曲名称: ${songName}`, 'success')
+        // 在这里执行你的进一步操作，比如发送音乐请求
+        sendMusicRequest(url, songName)
+    }
+
+    // 定义一个处理失败的回调函数
+    function onError(errorMessage) {
+        logMessage('获取歌曲 URL 失败:', 'error')
+        console.log(errorMessage)
+        // 在这里执行你的错误处理逻辑
+        sendMessage('获取歌曲 URL 失败, 请稍后再试。')
+    }
+
+    // 示发送请求获取歌曲信息
+    getSongInfo(songRequest, onSuccess, onError)
+}
+
+// 发送音乐消息
+function sendMusicRequest(url, name) {
+    // 创建请求的数据对象
+    const requestData = {
+        music: 'music',
+        url: url,
+        name: name
+    }
+
+    // 发送 POST 请求
+    $.post('/room/?ajax=1', requestData, function(responseData) {
+        if (!responseData) {
+            // 响应为空，发送音乐成功
+            logMessage('发送音乐成功！','success')
+        } else if (responseData === '慢一点，你发送得太快了！') {
+            // 响应为 '慢一点，你发送得太快了！'，等待2秒后重新发送
+            logMessage('发送音乐过快，等待3秒后重新发送...', 'warning')
+            setTimeout(function() {
+                sendMusicRequest(url, name) // 重新发送音乐请求
+            }, 3000) // 等待3秒
         }
+    }).fail(function(error) {
+        // 处理请求失败的情况
+        logMessage('发送音乐请求失败:','error')
+        console.log(error)
+    })
+}
+
+// 发送消息
+function sendMessage(message) {
+    // 创建包含消息数据的对象
+    let dataToSend = {
+        message: message
     }
 
-    // 处理文本消息
-    window.message = function({ message, from: { name , id , icon} }) {
-        // 如果是脚本自己的消息
-        if (drrrName === name){
-            // 创建本地聊天记录
-            createChatRecord({name,icon,message})
-        }else{
-            // 正常处理其他用户的消息
-            console.log("message: " + name,id,icon,message)
-            // 调用函数处理用户消息
-            handleUserMessage(name, id, icon, message);
+    // 发送 POST 请求
+    $.ajax({
+        type: "POST",
+        url: "/room/?ajax=1",
+        data: dataToSend,
+        success: function(response) {
+            // 请求成功的处理
+            if (response === "") {
+                // 响应为空，表示发送消息成功
+                logMessage("消息发送成功！", 'success')
+            } else {
+                // 响应不为空，可能包含错误信息或其他内容
+                logMessage("消息发送失败，响应内容：",'error')
+                console.log(response)
+            }
+        },
+        error: function(jqXHR, textStatus) {
+            // 请求失败的处理
+            logMessage("消息发送失败，错误信息：",'error')
+            console.log(textStatus)
         }
-    }
+    })
+}
 
-    // ai聊天功能
-    function aiChat(question = '你好') {
-        fetchJsonData('https://tool.533526.top/drrr-helper/?action=getAiReply&question=' + question)
-            .then((data) => {
-                sendMsg(data.data.reply)
+// 通过关键词获取音乐url
+function getSongInfo(keyword, successCallback, errorCallback) {
+    if (keyword === "") return  //关键词为空，不发送请求
+    // 第一次请求，获取歌曲信息数组
+    $.get(`https://kwapi-api-iobiovqpvk.cn-beijing.fcapp.run/search?pn=1&key=${keyword}`, function(responseData) {
+        // 解析响应数据为 JSON 格式
+        const responseJSON = JSON.parse(responseData)
+
+        // 检查是否是数组以及是否有数据
+        if (Array.isArray(responseJSON) && responseJSON.length > 0) {
+            // 获取数组中第一条数据的 rid 和歌曲信息
+            const firstSong = responseJSON[0]
+            const firstSongRid = firstSong.rid
+
+            // 构建歌曲名称（以name和artist拼接）
+            const songName = `${firstSong.name} - ${firstSong.artist}`
+
+            // 第二次请求，获取歌曲 URL
+            $.get(`https://kwapi-api-iobiovqpvk.cn-beijing.fcapp.run/mp3?rid=${firstSongRid}`, function(urlData) {
+                // 检查是否成功获取歌曲 URL
+                if (urlData) {
+                    urlData = replaceDomain(urlData)  // 替换域名支持https
+                    successCallback(urlData, songName) // 调用成功回调函数并传递 URL 和歌曲名称
+                } else {
+                    errorCallback('无法获取歌曲 URL') // 调用错误回调函数
+                }
+            }).fail(function() {
+                // 请求第二次失败时，重新执行 getSongInfo 并带上参数
+                setTimeout(function(){
+                    getSongInfo(keyword, successCallback, errorCallback);
+                },5000)
             })
-    }
-
-    // 发送随机音乐
-    async function   sendRandomMusic() {
-        console.log('播放随机歌曲')
-        // 随机音乐列表
-        const musicList = [
-            'メリッサ - ポルノグラフィティ',
-            '消不去的罪 - Nana Kitade',
-            '贝贝'
-        ]
-        // 抽取随机音乐
-        const  randomMusic = musicList[Math.floor(Math.random() * musicList.length)]
-        // 处理音乐请求
-        return handledMusicKuwo(randomMusic)
-    }
-
-    // 处理用户消息的函数
-    function handleUserMessage(name, id, icon, message) {
-        // 判断是否是点歌消息
-        const songName = startsWithDotSong(message)
-        // 点歌开关
-        const song_checkbox = document.querySelector('#song_checkbox')
-        if (songName  && song_checkbox.checked) {
-            handledMusicKuwo(songName)
         } else {
-            // 正常处理文本消息
-            const chat_checkbox = document.querySelector('#chat_checkbox')  //ai聊天开关
-            if(chat_checkbox.checked) {
-                aiChat(message)
-            }
+            logMessage('无法获取歌曲信息数组或数组为空','error')
+            errorCallback('无法获取歌曲信息数组或数组为空') // 调用错误回调函数
+            sendMessage('未搜索到相关歌曲信息')   // 给用户发送提示
         }
+    }).fail(function(error) {
+        logMessage('获取歌曲信息数组失败:', 'error')
+        console.log(error)
+        errorCallback('获取歌曲信息数组失败') // 调用错误回调函数
+        // 请求第一次失败时，重新执行 getSongInfo 并带上参数
+        setTimeout(function(){
+            getSongInfo(keyword, successCallback, errorCallback);
+        },5000)
+    })
+}
+
+// 替换酷我域名支持https
+function replaceDomain(url) {
+    // 使用正则表达式替换规则
+    return url.replace(/http:\/\/([^\/]+)\.sycdn\.kuwo\.cn/g, function (match, p1) {
+        let parts = p1.split('.')
+        if (parts.length >= 3) {
+            return 'https://' + parts.join('-') + '-sycdn.kuwo.cn'
+        } else {
+            return 'https://' + p1 + '-sycdn.kuwo.cn'
+        }
+    })
+}
+
+// 处理加入类型的函数
+function handleJoin(talk) {
+    logMessage('处理加入:', 'success' )
+    console.log(talk)
+    // 在这里执行处理加入的操作
+}
+
+// 处理离开类型的函数
+function handleLeave(talk) {
+    logMessage('处理离开:', 'success' )
+    console.log(talk)
+    // 在这里执行处理离开的操作
+}
+
+// 处理消息类型的函数
+function handleMessage(talk) {
+    const { from, message } = talk; // 解构获取属性
+    const { name, id, time } = from; // 解构获取属性
+
+    // 检查消息发送者是否与当前用户相同
+    if (name === localStorage.username) {
+        logMessage('消息发送者与当前用户相同，不处理消息。', 'warning');
+        return; // 如果相同，则不继续处理消息
     }
 
-    // 判断是否是点歌请求
-    function startsWithDotSong(text) {
-        const match = text.match(/^点歌(.*)/)
-        return match ? match[1] : false
-    }
+    logMessage('处理消息:', 'success');
+    console.log(talk);
 
-    // 替换酷我域名支持https
-    function replaceUrl(url) {
-        // 使用正则表达式替换规则
-        return url.replace(/http:\/\/([^\/]+)\.sycdn\.kuwo\.cn/g, function (match, p1) {
-            let parts = p1.split('.');
-            if (parts.length >= 3) {
-                return 'https://' + parts.join('-') + '-sycdn.kuwo.cn';
+    // 检查本地存储值 songChecked
+    const songChecked = localStorage.getItem("songChecked") === "true";
+
+    // 如果 songChecked 为 true，则正常处理点歌操作
+    if (songChecked) {
+        // 检查消息内容是否以特定前缀开头（例如 "点歌"）
+        const trimmedMessage = message.trim();
+        if (trimmedMessage.startsWith("点歌")) {
+            // 提取点歌后面的字符串
+            const songRequest = trimmedMessage.substring("点歌".length).trim();
+            // 执行你的自定义函数来处理点歌请求
+            if (songRequest !== '') {
+                handleSongRequest(songRequest, name, id, time);
             } else {
-                return 'https://' + p1 + '-sycdn.kuwo.cn';
+                // songRequest 为空，返回错误消息
+                logMessage("点歌歌名不能为空", 'error');
             }
-        })
-    }
-
-    // 处理点歌请求
-    async function handledMusicKuwo(name) {
-        try {
-            // 请求获取歌曲rid
-            const searchData = await fetchJsonData(`https://kwapi-api-iobiovqpvk.cn-beijing.fcapp.run/search?pn=1&key=${encodeURI(name)}`)
-            if (searchData && searchData.length > 0) {
-                const { rid, name: songName, artist: singer } = searchData[0];
-                // 请求获取歌曲url
-                const songUrl = await fetchTextData(`https://kwapi-api-iobiovqpvk.cn-beijing.fcapp.run/mp3?rid=${encodeURI(rid)}`)
-                // 发送歌曲
-                sendMusic(songName +  ' - ' + singer, replaceUrl(songUrl))
-            } else {
-                console.error('错误信息: ', '未找到匹配的歌曲信息')
-                sendMsg('未找到匹配的歌曲信息')
-            }
-        } catch (error) {
-            console.error('错误信息: ', error)
-            sendMsg('点歌失败,请重试')
         }
+    } else {
+        // 如果 songChecked 为 false，则打印提示信息
+        sendMessage('自助点歌功能未启用')
+        logMessage("自助点歌功能未启用", 'warning');
     }
-
-    // 发送音乐消息
-    function sendMusic(name, url) {
-        const sendData = {
-            music: 'music',
-            url,
-            name
-        };
-
-        const sendRequest = () => {
-            return $.ajax({
-                method: "post",
-                url: '/room/?ajax=1',
-                data: sendData,
-                success: (response) => {
-                    if (response === "慢一点，你发送得太快了！") {
-                        setTimeout(() => {
-                            // 请求返回特定消息时，等待一秒后重试
-                            sendRequest() // 重试请求
-                        }, 2000)
-                    } else {
-                        // 请求成功
-                        console.log("发送成功", response);
-                    }
-                },
-                error: (error) => {
-                    // 请求出错
-                    console.error("请求出错", error);
-                }
-            })
-        }
-
-        // 发送第一次请求
-        sendRequest()
-    }
-
-    // 获取文本数据
-    function fetchTextData(url) {
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                url: url,
-                dataType: 'text',
-                success: function(data) {
-                    resolve(data); // 解析数据并通过 resolve 返回
-                },
-                error: function(xhr, status, error) {
-                    reject(error); // 在错误时通过 reject 返回
-                }
-            })
-        })
-    }
-
-    // 获取json数据
-    function fetchJsonData(url) {
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                url: url,
-                dataType: 'json',
-                success: function(data) {
-                    resolve(data) // 解析数据并通过 resolve 返回
-                },
-                error: function(xhr, status, error) {
-                    reject(error); // 在错误时通过 reject 返回
-                }
-            })
-        })
-    }
-
-    // 定时发送方法
-    const interval_time = 120 // 设置定时发送默认间隔时间
-    let intervalSendTimer = setInterval(intervalSendFn, interval_time * 1000)   // 初始化定时器
-    function intervalSendFn() {
-        const date = new Date()
-        const time = date.getHours() + ':' + date.getMinutes() + ':' + date.getSeconds()
-        let timer_checkbox = document.getElementById('timer_checkbox')
-        timer_checkbox.checked && aiChat('给我发一条祝福,字数在50字左右,并在祝福前面加上现在时间' + time + ',最后把这段话最前面加上/me')
-        clearInterval(intervalSendTimer)    // 清除定时器
-        // 重新设置定时器
-        intervalSendTimer = setInterval(intervalSendFn, interval_time * 1000)
-    }
-
-    // 插入控制面板元素
-    function insertDrrrHelperControlPanel() {
-        // 向页面中插入控制面板元素
-        const drrrHelperControlPanel = GM_addElement(document.querySelector('.message_box_effect_wraper'), 'div', {id: 'drrr-auto-panel'})
-        // 插入控制面板元素
-        drrrHelperControlPanel.innerHTML = `
-        <div id="drrr-auto-content">
-            <div class="items"><input type="checkbox" id="song_checkbox"><span>点歌功能</span></div>
-            <div class="items"><input type="checkbox" id="chat_checkbox"><span>智能聊天</span></div>
-            <div class="items"><input type="checkbox" id="welcome_checkbox"><span>欢迎加入</span></div>
-            <div class="items"><input type="checkbox" id="timer_checkbox"><span>定时发送</span></div>
-        </div>`
-
-        // 批量绑定点击事件
-        document.addEventListener('click', function (e) {
-            const ids = [
-                'song_checkbox',
-                'chat_checkbox',
-                'welcome_checkbox',
-                'timer_checkbox',
-            ]
-            if (ids.includes(e.target.id)) {
-                const foundValue = ids[ids.indexOf(e.target.id)];
-                let element = document.querySelector('#' + foundValue)
-                GM_setValue(foundValue, element.checked)
-            }
-        })
-
-        // 点歌checkbox
-        const song_checkbox = document.querySelector('#song_checkbox')
-        // 聊天checkbox
-        const chat_checkbox = document.querySelector('#chat_checkbox')
-        // 欢迎加入checkbox
-        const welcome_checkbox = document.querySelector('#welcome_checkbox')
-        // 定时checkbox
-        const timer_checkbox = document.querySelector('#timer_checkbox')
-
-        // 设置checkbox选中状态
-        GM_getValue('song_checkbox', false) ? song_checkbox.checked = true : song_checkbox.checked = false  // 点歌
-        GM_getValue('chat_checkbox', false) ? chat_checkbox.checked = true : chat_checkbox.checked = false  // ai聊天
-        GM_getValue('welcome_checkbox', false) ? welcome_checkbox.checked = true : welcome_checkbox.checked = false //  欢迎加入
-        GM_getValue('timer_checkbox', false) ? timer_checkbox.checked = true : timer_checkbox.checked = false   // 定时发送
-    }
-
-
-    // 发送文本消息
-    function sendMsg(msg) {
-        return $.ajax({
-            method: "post",
-            url: '/room/?ajax=1',
-            data: {
-                message:msg
-            }
-        })
-    }
-
-    // 创建本地聊天记录
-    function createChatRecord(data) {
-        // 解构数据
-        const { name, icon, message } = data
-        // 获取talks元素
-        const talks = document.getElementById('talks')
-        // 创建talk的元素结构
-        const talk = `
-          <dl class="talk ${icon}">
-            <dt class="dropdown user">
-              <div class="avatar avatar-${icon}"></div>
-              <div class="name" data-toggle="dropdown">
-                <span class="select-text">${name}</span>
-              </div>
-              <ul class="dropdown-menu" role="menu"></ul>
-            </dt>
-            <dd>
-              <div class="bubble">
-                <div class="tail-wrap center" style="background-size: 65px;">
-                  <div class="tail-mask"></div>
-                </div>
-                <p class="body select-text">${message}</p>
-              </div>
-            </dd>
-          </dl>
-        `
-        // 插入新元素到父元素的最前面
-        talks.insertAdjacentHTML("afterbegin", talk);
-    }
-
-})();
+    // 在这里执行处理消息的操作
+}
