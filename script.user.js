@@ -14,7 +14,6 @@
 // ==/UserScript==
 
 // 定义全局变量
-let currentIconName = '' // 创建一个变量以存储当前图标名称
 let lastRequestedSong = null // 外部创建一个变量来存储上一首点的歌曲信息
 const userSongTimestamps = {}  // 外部创建一个对象来跟踪每个用户的点歌时间戳// 外部创建一个对象来跟踪每个用户的点歌时间戳
 // 检测本地存储是否已经存在songList
@@ -42,7 +41,8 @@ let songList = JSON.parse(localStorage.getItem('songList'));
 const typeToHandler = {
     'join': handleJoin,
     'leave': handleLeave,
-    'message': handleMessage
+    'message': handleMessage,
+    'music': handleMusic
 }
 
 // 添加全局事件监听器
@@ -62,8 +62,6 @@ $(document).ready(function () {
 
 // 初始化函数
 function initialize() {
-    // 获取当前图标名称
-    getCurrentIconName()
 
     // 创建并添加样式表
     createAndAppendStylesheet()
@@ -76,24 +74,6 @@ function initialize() {
 
     // 设置按钮点击事件
     settingsButtonClick()
-}
-
-// 获取当前图标名称
-function getCurrentIconName() {
-    // 检查当前位置是否包含 "lounge"
-    if (window.location.href.includes('lounge')) {
-        // 获取图标的类名
-        const iconClassName = document.querySelector('.icon .avatar').classList[1]
-
-        // 使用正则表达式替换 "avatar-" 为空字符串，以获取图标名称
-        currentIconName = iconClassName.replace(/^avatar-/, '')
-
-        // 将获取的 currentIconName 写入本地存储
-        if (currentIconName) {
-            localStorage.setItem('currentIconName', currentIconName)
-            logMessage('获取用户icon成功','success')
-        }
-    }
 }
 
 // 创建并添加样式表
@@ -112,7 +92,7 @@ function createAndAppendStylesheet() {
     var styleElement = document.createElement('style');
 
     // 在<style>元素中添加你的CSS样式
-    styleElement.innerHTML = `#tip{color: #000;}.settingContainer{width:100%;height:100%;background-color:rgb(77,189,60);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;box-sizing:border-box}.settingContainer button{background-color:#fff;border-radius:5px;border:1px solid #000;color:#000}.settingTiele{color:#fff;font-weight:bold;font-size:2rem;margin-bottom:1rem}.randomSongListsTextarea{display:flex;width:100%;justify-content:center}.randomSongListsTextarea textarea{width:100%}.panel{margin-top:1rem;display:flex;align-items:center;justify-content:space-between;width:100%}.panel .right{height:100%;color:#fff;display:flex;justify-content:center;align-items:center;padding:0 1rem;border:1px solid #fff;border-radius:5px;flex-direction:column-reverse}.panel .right .checkBox{margin:0 0.2rem;display:flex;align-items:center}.panel .right .checkBox label{margin-bottom:0}textarea{border:none;outline:none;padding:0;margin:0;-webkit-appearance:none;-moz-appearance:none;appearance:none;background-image:none;background-color:transparent;font-size:inherit;width:100%}textarea:focus{outline:none}.textarea{display:inline-block;resize:vertical;padding:5px 15px;line-height:1.5;box-sizing:border-box;color:#606266;background-color:#fff;border:1px solid #dcdfe6;border-radius:4px;transition:border-color 0.2s cubic-bezier(0.645,0.045,0.355,1)}.textarea::placeholder{color:#c0c4cc}.textarea:hover{border-color:#c0c4cc}.textarea:focus{border-color:#3677f0}.savebtn{color:#0099CC;background:transparent;border:2px solid #0099CC;border-radius:6px;border:none;color:white;padding:16px 32px;text-align:center;display:inline-block;font-size:16px;-webkit-transition-duration:0.4s;transition-duration:0.4s;cursor:pointer;text-decoration:none;text-transform:uppercase}.savebtn{background-color:white;color:black;border:2px solid #008CBA}.savebtn:hover{background-color:#000;color:white;border:1px solid #fff}@media screen and (min-width:769px){textarea.textarea,.panel{width:50%}}`;
+    styleElement.innerHTML = `body.stop-scrolling{overflow:auto!important;height:auto!important;}.sweet-overlay,.sweet-alert{display: none!important;}#tip{color: #000;}.settingContainer{width:100%;height:100%;background-color:rgb(77,189,60);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;box-sizing:border-box}.settingContainer button{background-color:#fff;border-radius:5px;border:1px solid #000;color:#000}.settingTiele{color:#fff;font-weight:bold;font-size:2rem;margin-bottom:1rem}.randomSongListsTextarea{display:flex;width:100%;justify-content:center}.randomSongListsTextarea textarea{width:100%}.panel{margin-top:1rem;display:flex;align-items:center;justify-content:space-between;width:100%}.panel .right{height:100%;color:#fff;display:flex;justify-content:center;align-items:center;padding:0 1rem;border:1px solid #fff;border-radius:5px;flex-direction:column-reverse}.panel .right .checkBox{margin:0 0.2rem;display:flex;align-items:center}.panel .right .checkBox label{margin-bottom:0}textarea{border:none;outline:none;padding:0;margin:0;-webkit-appearance:none;-moz-appearance:none;appearance:none;background-image:none;background-color:transparent;font-size:inherit;width:100%}textarea:focus{outline:none}.textarea{display:inline-block;resize:vertical;padding:5px 15px;line-height:1.5;box-sizing:border-box;color:#606266;background-color:#fff;border:1px solid #dcdfe6;border-radius:4px;transition:border-color 0.2s cubic-bezier(0.645,0.045,0.355,1)}.textarea::placeholder{color:#c0c4cc}.textarea:hover{border-color:#c0c4cc}.textarea:focus{border-color:#3677f0}.savebtn{color:#0099CC;background:transparent;border:2px solid #0099CC;border-radius:6px;border:none;color:white;padding:16px 32px;text-align:center;display:inline-block;font-size:16px;-webkit-transition-duration:0.4s;transition-duration:0.4s;cursor:pointer;text-decoration:none;text-transform:uppercase}.savebtn{background-color:white;color:black;border:2px solid #008CBA}.savebtn:hover{background-color:#000;color:white;border:1px solid #fff}@media screen and (min-width:769px){textarea.textarea,.panel{width:50%}}`;
 
     // 将<style>元素添加到页面的<head>部分
     document.head.appendChild(styleElement);
@@ -136,24 +116,34 @@ function createAndAppendSettingsButton() {
 
 // 封装函数，页面加载完成确认自动放歌对话框
 function showConfirmationDialog() {
-    // 自动播放的歌曲加载需要时间
-    setTimeout(() =>{
+    // 等待自动播放的歌曲加载
+    setTimeout(() => {
         const autoChecked = localStorage.getItem("autoChecked") === "true";
-        console.log(autoChecked)
-        console.log(Player.isPausing)
-        // 自动放歌打开和现在没有在播放歌曲时提示
-        if (autoChecked && Player.isPausing) {
-            let tip = layer.confirm('检测到自动点放歌功已开启,现在是否要播放随机随机歌曲？', {
-                title: '提示信息',
-                id: 'tip',
-                btn: ['需要', '不需要'] // 按钮
-            }, function () {
-                layer.msg('准备播放随机歌曲')
-                autoSongRequest()   // 开始自动播放
-                layer.close(tip)    // 关闭提示框
-            })
+        const isAutoPlayEnabled = window.location.href.includes("room/?id") && autoChecked && Player.isPausing;
+
+        if (isAutoPlayEnabled) {
+            // 判断是不是音乐房，只有在当前地址包含"room/?id"时才访问room.musicRoom
+            if (room.musicRoom) {
+                // 显示确认对话框
+                let tip = layer.confirm('检测到自动点放歌功已开启，现在是否要播放随机歌曲？', {
+                    title: '提示信息',
+                    id: 'tip',
+                    btn: ['需要', '不需要'] // 按钮
+                }, function () {
+                    layer.msg('准备播放随机歌曲');
+                    autoSongRequest();   // 开始自动播放
+                    layer.close(tip);    // 关闭提示框
+                });
+            } else {
+                // 不是音乐房间，显示提示信息
+                layer.alert('当前不是音乐房间，无法点歌。', {
+                    shadeClose: true,
+                    id: 'tip',
+                    title: '提示信息'
+                });
+            }
         }
-    },2000)
+    }, 3000);
 }
 
 //  监控talks子元素数量，并以倒序方式移除超过指定数量的子元素。
@@ -420,6 +410,7 @@ function musicPlaybackStatus() {
             var r = this;
             _classCallCheck(this, e),
                 this.music = n,
+                console.log(n)
                 this.name = DRRRClientBehavior.literalMusicTitle(n),
                 this.url = n.playURL,
                 this.schedule = null;
@@ -657,38 +648,13 @@ function setupAjaxListeners() {
                     for (const [key, value] of params) {
                         requestData[key] = value
                     }
-                    // 从本地存储中获取 currentIconName
-                    const storedIconName = localStorage.getItem('currentIconName')
-                    if (!storedIconName || storedIconName === '') { // 如果 storedIconName 不存在或为空字符串
-                        const userResponse = confirm('图标不存在或为空。是否返回等候室重新获取图标？')
-
-                        if (userResponse) {
-                            // 用户点击了确认按钮，执行 POST 请求
-                            $.post('/room/?ajax=1', { leave: 'leave' }, function(responseData) {
-                                if (!responseData) {
-                                    // 如果 POST 请求成功并且响应为空，执行重定向逻辑
-                                    logMessage('退出房间成功，返回等候室。','success')
-                                    window.location.href = '/lounge' // 重定向到等候室页面
-                                } else {
-                                    // 如果 POST 请求成功但响应不为空，可以根据需要执行其他操作
-                                    logMessage('退出房间状态未知。', 'warning')
-                                    console.log(responseData)
-                                }
-                            }).fail(function(error) {
-                                // 处理请求失败的情况
-                                console.error('POST 请求失败:', error)
-                            })
-                        } else {
-                            // 用户点击了取消按钮，可以执行其他操作或不执行任何操作
-                            logMessage('用户取消了返回等候室操作。','success')
-                        }
-                    }
                     // 插入本地消息
                     const talks = document.getElementById('talks')
+                    const icon = profile.icon
                     const div = `
-                    <dl class="talk ${storedIconName}">
+                    <dl class="talk ${icon}">
                         <dt class="dropdown user">
-                            <div class="avatar avatar-${storedIconName}"></div>
+                            <div class="avatar avatar-${icon}"></div>
                             <div class="name" data-toggle="dropdown">
                                 <span class="select-text">${name}</span>
                             </div>
@@ -753,6 +719,13 @@ function autoSongRequest() {
 
 // 自定义处理点歌请求的函数
 function handleSongRequest(songRequest, name, id) {
+
+    // 当前不是音乐房间就返回提示信息
+    if (!room.music){
+        sendMessage('当前不是音乐房间，无法点歌。')
+        logMessage('当前不是音乐房间，无法点歌。', 'error')
+        return
+    }
 
     // 检查当前这首点的歌曲是否与上一首不一样
     if (lastRequestedSong === songRequest) {
@@ -993,4 +966,37 @@ function handleMessage(talk) {
         logMessage("自助点歌功能未启用", 'warning');
     }
     // 在这里执行处理消息的操作
+}
+
+// 处理音乐类型的函数
+function handleMusic(talk){
+    console.log(talk)
+    // 手机设备才执行播放歌曲
+    if (profile.device === 'mobile'){
+        if (Player.isPausing){
+            // 开始播放音乐
+            logMessage('开始播放音乐','success')
+            // 创建音乐项对象，传入音乐数据对象作为参数
+            const musicItem = new MusicItem(talk.music);
+            // 播放音乐
+            musicItem.play()
+        }else{
+            // 首次点歌必须点击一下
+            const tip = layer.alert('手机首次点歌必须点击确认一下', {
+                shadeClose: true,
+                id: 'tip',
+                title: '提示信息'
+            }, function(){
+                // 开始播放音乐
+                logMessage('开始播放音乐','success')
+                // 创建音乐项对象，传入音乐数据对象作为参数
+                const musicItem = new MusicItem(talk.music);
+                // 播放音乐
+                musicItem.play()
+                layer.close(tip)
+            });
+        }
+    }else{
+        logMessage('播放歌曲功能仅支持手机端', 'warning')
+    }
 }
