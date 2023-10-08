@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name        drrr-helper
-// @description 让DRRR.COM聊天室支持点歌、智能聊天功能
+// @name        DRRR点歌助手(drrr-music-helper)
+// @description 让DRRR.COM聊天室支持点歌功能
 // @namespace   Violentmonkey Scripts
 // @match       https://drrr.com/*
 // @license     MIT
@@ -256,7 +256,7 @@ function listenCheckboxChange(autoCheckbox, message, successMessage, warningMess
 
             // 在自助点歌功能开启时发送消息
             if (message === "songChecked") {
-                sendMessage('自助点歌功能已开启,自助点歌格式为:点歌+歌名');
+                sendMessage('自助点歌功能已开启,自助点歌格式为:点歌+歌名 或者  播放 + 歌名');
             }
 
             // 在自动放歌功能开启时触发提示并发送消息
@@ -961,9 +961,22 @@ function handleMessage(talk) {
 
     // 如果 songChecked 为 true，则正常处理点歌操作
     if (songChecked) {
-        // 检查消息内容是否以特定前缀开头（例如 "点歌"）
         const trimmedMessage = message.trim();
-        if (trimmedMessage.startsWith("点歌")) {
+
+        // 检查消息内容是否以 "播放" 开头
+        if (trimmedMessage.startsWith("播放")) {
+            // 提取播放后面的字符串
+            const songToPlay = trimmedMessage.substring("播放".length).trim();
+            // 执行处理播放请求的逻辑
+            if (songToPlay !== '') {
+                handleSongRequest(songToPlay, name, id, time);
+                return; // 继续执行后面的逻辑
+            } else {
+                // 如果播放后面的字符串为空，返回错误消息
+                logMessage("播放歌曲不能为空", 'error');
+            }
+        } else if (trimmedMessage.startsWith("点歌")) {
+            // 正常处理点歌请求的逻辑
             // 提取点歌后面的字符串
             const songRequest = trimmedMessage.substring("点歌".length).trim();
             // 执行你的自定义函数来处理点歌请求
