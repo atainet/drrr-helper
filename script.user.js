@@ -7,7 +7,7 @@
 // @require     https://fastly.jsdelivr.net/npm/layer-src@3.5.1/src/layer.min.js
 // @resource    layerCss  https://fastly.jsdelivr.net/npm/layer-src@3.5.1/dist/theme/default/layer.min.css
 // @unwrap
-// @version     3.1.1
+// @version     3.1.2
 // @author      QQ:121610059
 // @update      2023-06-06 14:02:31
 // @supportURL  https://greasyfork.org/zh-CN/scripts/414535-drrr-com%E6%99%BA%E8%83%BD%E8%84%9A%E6%9C%AC-%E8%87%AA%E5%8A%A8%E5%AF%B9%E8%AF%9D-%E8%87%AA%E5%8A%A8%E7%82%B9%E6%AD%8C
@@ -16,6 +16,11 @@
 // 定义全局变量
 let lastRequestedSong = null // 外部创建一个变量来存储上一首点的歌曲信息
 const userSongTimestamps = {}  // 外部创建一个对象来跟踪每个用户的点歌时间戳// 外部创建一个对象来跟踪每个用户的点歌时间戳
+let userInteracted = false; // 添加一个变量来跟踪用户是否已经与网页交互
+// 添加事件监听器来检测用户的互动行为
+document.addEventListener('click', function() {
+    userInteracted = true;
+});
 // 检测本地存储是否已经存在songList
 if (!localStorage.getItem('songList')) {
     // 如果不存在，将数组中的数据设置为本地存储的songList
@@ -120,27 +125,36 @@ function showConfirmationDialog() {
     setTimeout(() => {
         const autoChecked = localStorage.getItem("autoChecked") === "true";
         const isAutoPlayEnabled = window.location.href.includes("room/?id") && autoChecked && Player.isPausing;
-
+        // 判断是不是音乐房，只有在当前地址包含"room/?id"时才访问room.musicRoom
         if (isAutoPlayEnabled) {
-            // 判断是不是音乐房，只有在当前地址包含"room/?id"时才访问room.musicRoom
-            if (room.musicRoom) {
-                // 显示确认对话框
-                let tip = layer.confirm('检测到自动点放歌功已开启，现在是否要播放随机歌曲？', {
-                    title: '提示信息',
-                    id: 'tip',
-                    btn: ['需要', '不需要'] // 按钮
-                }, function () {
-                    layer.msg('准备播放随机歌曲');
-                    autoSongRequest();   // 开始自动播放
-                    layer.close(tip);    // 关闭提示框
-                });
-            } else {
-                // 不是音乐房间，显示提示信息
-                layer.alert('当前不是音乐房间，无法点歌。', {
-                    shadeClose: true,
-                    id: 'tip',
-                    title: '提示信息'
-                });
+            // 如果已经和与网页进行交互
+            if (userInteracted){
+                logMessage('网页交互状态检测成功','success')
+                if (room.musicRoom) {
+                    // 显示确认对话框
+                    let tip = layer.confirm('检测到自动点放歌功已开启，现在是否要播放随机歌曲？', {
+                        title: '提示信息',
+                        id: 'tip',
+                        btn: ['需要', '不需要'] // 按钮
+                    }, function () {
+                        layer.msg('准备播放随机歌曲');
+                        autoSongRequest();   // 开始自动播放
+                        layer.close(tip);    // 关闭提示框
+                    });
+                } else {
+                    // 不是音乐房间，显示提示信息
+                    layer.alert('当前不是音乐房间，无法点歌。', {
+                        shadeClose: true,
+                        id: 'tip',
+                        title: '提示信息'
+                    });
+                }
+            }else{
+                logMessage('网页未进行交互,等待3秒后再检测','warning')
+                // 如果没有和网页进行交互，则等待 3秒后再执行
+                setTimeout(function () {
+                    showConfirmationDialog();
+                }, 3000);
             }
         }
     }, 3000);
@@ -969,34 +983,44 @@ function handleMessage(talk) {
 }
 
 // 处理音乐类型的函数
-function handleMusic(talk){
-    console.log(talk)
+async function handleMusic(talk) {
+    console.log(talk);
     // 手机设备才执行播放歌曲
-    if (profile.device === 'mobile'){
-        if (Player.isPausing){
-            // 开始播放音乐
-            logMessage('开始播放音乐','success')
-            // 创建音乐项对象，传入音乐数据对象作为参数
-            const musicItem = new MusicItem(talk.music);
-            // 播放音乐
-            musicItem.play()
-        }else{
-            // 首次点歌必须点击一下
-            const tip = layer.alert('手机首次点歌必须点击确认一下', {
-                shadeClose: true,
-                id: 'tip',
-                title: '提示信息'
-            }, function(){
-                // 开始播放音乐
-                logMessage('开始播放音乐','success')
-                // 创建音乐项对象，传入音乐数据对象作为参数
-                const musicItem = new MusicItem(talk.music);
-                // 播放音乐
-                musicItem.play()
-                layer.close(tip)
-            });
-        }
-    }else{
-        logMessage('播放歌曲功能仅支持手机端', 'warning')
+    if (profile.device !== 'mobile') {
+        logMessage('播放歌曲功能仅支持手机端', 'warning');
+        return;
     }
+
+    if (!Player.isPausing) {
+        return;
+    }
+
+    // 如果用户没有与页面交互，显示提示消息并等待用户互动
+    if (!userInteracted) {
+        sendMessage('请管理员检查脚本的提示信息')
+        logMessage('请与页面互动后才能播放音乐', 'warning');
+        await showAlert('请与页面互动后才能播放音乐');
+        userInteracted = true; // 用户确认后设置为 true
+    }
+
+    // 开始播放音乐
+    logMessage('开始播放音乐', 'success');
+    // 创建音乐项对象，传入音乐数据对象作为参数
+    const musicItem = new MusicItem(talk.music);
+    // 播放音乐
+    musicItem.play();
+}
+
+// 封装弹出提示的逻辑
+function showAlert(message) {
+    return new Promise((resolve) => {
+        const tip = layer.alert(message, {
+            shadeClose: true,
+            id: 'tip',
+            title: '提示信息'
+        }, function() {
+            resolve();
+            layer.close(tip);
+        });
+    });
 }
